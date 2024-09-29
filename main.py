@@ -10,8 +10,28 @@
 # - 메모리 구성을 하겠다면, 어떻게 파인튜닝할것인지?
 # - 파인튜닝 데이터 누가 만들것인지?
 
+# 라우터를 통한 엔드포인트별 구별이 필요
+# SERVER/
+# ├── main.py
+# ├── apis/
+# │   ├── __init__.py
+# │   ├── user.py
+# │   ├── assistant.py
+# │   ├── auth.py
+# ├── models/             # 데이터베이스 모델
+# │   ├── __init__.py
+# │   ├── models.py
+# ├── schemas/            # Pydantic 스키마
+# │   ├── __init__.py
+# │   ├── schemas.py
+# ├── utils/              # 유틸리티 함수
+# │   ├── __init__.py
+# │   ├── auth_utils.py
+# ├── database/           # 데이터베이스 설정 및 세션 관리
+# │   ├── __init__.py
+# │   ├── database.py
+# └── .env                # 환경 변수 파일
 
-# 최종수정 09.30 04:06
 import nest_asyncio
 nest_asyncio.apply()
 from dotenv import load_dotenv
@@ -46,7 +66,7 @@ from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, engine, get_db
+from database import engine, get_db
 import uuid
 from utils import hash_password, verify_password, create_access_token, create_refresh_token, decode_token, get_user_from_token, revoke_refresh_token, get_valid_refresh_token, store_refresh_token, validate_password_strength
 from utils import REFRESH_TOKEN_EXPIRE_DAYS
