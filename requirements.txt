@@ -1,0 +1,6 @@
+fastapi
+openai
+uvicorn[standard]
+python-dotenv
+passlib[bcrypt]
+python-jose[cryptography]

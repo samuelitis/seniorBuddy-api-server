@@ -1,0 +1,10 @@
+.env
+.git
+
+__pycache__
+
+*.pyc
+test.ipynb
+weather_data
+functions
+db/*.xlsx
