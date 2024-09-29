@@ -7,4 +7,4 @@ __pycache__
 test.ipynb
 weather_data
 functions
-db/*.xlsx
+database/*.xlsx
