@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from models import AssistantThread, AssistantMessage
+
 # 특정 사용자의 스레드 조회
 def get_thread_by_user(db: Session, user_id: int):
     return db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()

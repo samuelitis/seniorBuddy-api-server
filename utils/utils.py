@@ -1,4 +1,4 @@
-import os
+import os, re
 import jwt
 from re import search, match
 from passlib.context import CryptContext
@@ -126,3 +126,16 @@ def validate_password_strength(password: str):
     
     if not search(r"[@$!%*?&#]", password):
         raise HTTPException(status_code=400, detail="Password must contain at least one special character: @$!%*?&#")
+    
+# SQL 인젝션 해킹 방지용 함수
+def is_valid_injection(input: str) -> bool:
+    # 위험한 SQL 패턴에 대한 정규 표현식
+    sql_injection = re.compile(
+        r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|GRANT|REVOKE|UNION|--|#|/\*|\*/|;)\b|'|\"|=|--|\|\||\bOR\b|\bAND\b)",
+        re.IGNORECASE
+    )
+    
+    # 입력 값이 SQL 인젝션 패턴에 맞는지 확인
+    if sql_injection.search(input):
+        return False
+    return True
