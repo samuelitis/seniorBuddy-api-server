@@ -126,3 +126,4 @@ def update_location(user_id: int, latitude: float, longitude: float, db: Session
     db.commit()
     db.refresh(user)
     return {"message": "Location updated successfully"}
+

@@ -44,7 +44,7 @@ class AssistantThread(Base):
     user_id = Column(Integer, ForeignKey('users.user_id'), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     run_state = Column(String(50), nullable=False)
-    run_id = Column(String(100), nullable=False)
+    run_id = Column(String(100), nullable=True)
 
     user = relationship("User", back_populates="thread")
     message = relationship("AssistantMessage", back_populates="thread", uselist=False)
@@ -56,6 +56,7 @@ class AssistantMessage(Base):
     message_id = Column(String(36), primary_key=True, index=True)
     thread_id = Column(String(36), ForeignKey('assistant_threads.thread_id'), unique=True, nullable=False)
     sender_type = Column(Enum(SenderType), nullable=False)
+    status_type = Column(TEXT, nullable=False)
     content = Column(TEXT, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
