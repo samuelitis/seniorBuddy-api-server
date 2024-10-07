@@ -5,6 +5,5 @@ from .schemas import (
     AssistantMessageCreate,
     UserResponse,
     TokenResponse,
-    SeniorLoginData,
     LoginData,
 )

@@ -2,15 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
-from fastapi.security import CSRFProtect
 from sqlalchemy.orm import Session
 import models
-from utils import verify_password, create_access_token, create_refresh_token, get_user_from_token, revoke_refresh_token, get_valid_refresh_token, store_refresh_token, is_valid_phone
+from utils import verify_password, create_access_token, create_refresh_token, get_user_from_token, revoke_refresh_token, get_valid_refresh_token, store_refresh_token, is_valid_phone, is_valid_email
 from pydantic import BaseModel
 from database import get_db
 from datetime import datetime, timedelta
 from utils import REFRESH_TOKEN_EXPIRE_DAYS
-from schemas import SeniorLoginData, TokenResponse
+from schemas import TokenResponse, LoginData
 
 router = APIRouter()
 
@@ -61,24 +60,40 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
 #                       "Y88888P'                                    
 
 # 로그인 및 토큰 발급 (리프레시 토큰 저장)
-@router.post("/token", response_model=TokenResponse)
-def login_for_access_token(data: SeniorLoginData, db: Session = Depends(get_db)):
-    # 전화번호 유효성 검사
-    if not is_valid_phone(data.phone_number):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
-    
-    user = models.get_user_by_phone(db, data.phone_number)
-    if not user or not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # JWT 토큰 생성
+@router.post("/login", response_model=TokenResponse)
+def login_for_access_token(data: LoginData, db: Session = Depends(get_db)):
+    user = None
+
+    if is_valid_email(data.identifier):  # 이메일로 로그인 시 일반 유저만
+        user = db.query(models.User).filter(
+            models.User.email == data.identifier,
+            models.User.user_type != models.UserType.senior
+        ).first()
+    elif is_valid_phone(data.identifier):  # 전화번호로 로그인 시 시니어 유저만
+        user = db.query(models.User).filter(
+            models.User.phone_number == data.identifier,
+            models.User.user_type == models.UserType.senior
+        ).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Incorrect password")
+
+    existing_refresh_token = get_valid_refresh_token(db, user.user_id)
+
+    # Refresh Token Rotation 적용: 기존 토큰이 유효해도 새로운 리프레시 토큰 발급
+    if existing_refresh_token:
+        revoke_refresh_token(db, existing_refresh_token.token)
+
+    # 새로운 토큰 발급
     access_token = create_access_token({"sub": user.user_id})
     refresh_token = create_refresh_token({"sub": user.user_id})
     refresh_token_expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    
-    # 리프레시 토큰 저장
+
+    # 새로운 Refresh Token 저장
     store_refresh_token(db, refresh_token, user.user_id, refresh_token_expires_at)
-    
+
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -91,12 +106,12 @@ def login_for_access_token(data: SeniorLoginData, db: Session = Depends(get_db))
 #   8""88888P'  o888o `8oooooo.  o888o o888o      `Y8bod8P'  `V88V"V8P'   "888"
 #                    d"     YD                                                
 #                    "Y88888P'                                                
+
 # 로그아웃
 @router.post("/logout")
 def logout(refresh_token: str, db: Session = Depends(get_db)):
     revoke_refresh_token(db, refresh_token)
 
-    # 클라이언트 쿠키에서 리프레쉬 토큰 삭제
-    response = JSONResponse(content={"message": "Logged out successfully"})
-    response.delete_cookie(key="refresh_token", httponly=True)
-    return response
+    # 로그아웃 성공 응답
+    # 해당 부분은 NextJS 에서 쿠키 삭제를 하도록 해야함
+    return JSONResponse(content={"message": "Logged out successfully"})

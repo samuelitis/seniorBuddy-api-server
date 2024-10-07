@@ -52,10 +52,14 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
 
-class SeniorLoginData(BaseModel):
-    phone_number: str
-    password: str
-    
 class LoginData(BaseModel):
-    user_id: str
+    identifier: str  # 이메일 또는 전화번호
     password: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "identifier": "user@example.com or 010-1234-5678",
+                "password": "password123"
+            }
+        }
