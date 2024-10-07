@@ -82,13 +82,14 @@ app = FastAPI(
 # 
 origins = [
     "http://localhost:8000",
+    "http://175.113.69.58:8000/"
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    # allow_origins=origins,  # 허용된 도메인으로 제한
-    allow_origins=["*"],  # 모든 도메인을 허용
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

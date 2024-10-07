@@ -17,8 +17,13 @@
    MYSQL_USER=mysql서버접속시 유저명
    MYSQL_PASSWORD=mysql서버접속시 비번
    ```
+
 3. **Docker 컨테이너 생성**
    ```bash
    docker-compose up -d build
    ```
 
+4. **uvicorn 실행**  
+   ```bash
+   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   ```

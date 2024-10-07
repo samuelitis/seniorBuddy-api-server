@@ -1,5 +1,5 @@
 import os, json
-from typing import Any, override
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from schemas import AssistantThreadCreate, AssistantMessageCreate
@@ -14,6 +14,7 @@ from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
 from functions import getUltraSrtFcst
+from utils import is_valid_injection
 
 
 
@@ -21,6 +22,8 @@ router = APIRouter()
 assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
 client = OpenAI()
 
+def override(method: Any) -> Any:
+    return method
 ### 스레드 관리 API ###
 #
 #    ooooooooooooo oooo                                           .o8 
@@ -32,8 +35,7 @@ client = OpenAI()
 #        o888o     o888o o888o d888b    `Y8bod8P' `Y888""8o `Y8bod88P"
 
 # 스레드 생성
-@router.post("/assistant/threads", response_model=AssistantThreadCreate)
-def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
+async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     # OpenAI API를 통해 스레드 생성
     thread = client.beta.threads.create()
     
@@ -52,16 +54,16 @@ def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     return assistant_thread
 
 # 특정 사용자의 스레드 조회
-@router.get("/assistant/threads/{user_id}")
-def get_threads_by_user(user_id: int, db: Session = Depends(get_db)):
+@router.get("/threads/{user_id}")
+async def get_threads_by_user(user_id: int, db: Session = Depends(get_db)):
     threads = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).all()
     if not threads:
         raise HTTPException(status_code=404, detail="No threads found for this user")
     return threads
 
 # 스레드 삭제
-@router.delete("/assistant/threads/{user_id}")
-def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
+@router.delete("/threads/{user_id}")
+async def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     # user_id로 해당 유저의 스레드를 찾음
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
@@ -81,21 +83,28 @@ def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 #                                                           d"     YD           
 #                                                           "Y88888P'           
 
-# 메시지 생성 및 전송
-@router.post("/assistant/threads/{user_id}/messages", response_model=AssistantMessageCreate)
-def add_message_to_thread(user_id: int, message: AssistantMessageCreate, db: Session = Depends(get_db)):
+@router.post("/message/{user_id}", response_model=AssistantMessageCreate)
+async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db: Session = Depends(get_db)):
+    if not is_valid_injection(message.content):
+        raise HTTPException(status_code=400, detail="Invalid input")
+
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        thread = create_assistant_thread(user_id, db)
 
-    # OpenAI API로 메시지 전송
+    running_states = ["running", "processing", "waiting"]
+    latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(AssistantMessage.created_at.desc()).first()
+
+    if latest_message and latest_message.status_type in running_states:
+        raise HTTPException(status_code=400, detail="A message is already in progress")
+
     response = client.beta.threads.messages.create(
         thread_id=thread.thread_id,
         role="user",
         content=message.content
     )
 
-    # 데이터베이스에 메시지 저장
+    # 메시지 DB에 저장
     new_message = AssistantMessage(
         thread_id=thread.thread_id,
         sender_type="user",
@@ -103,37 +112,23 @@ def add_message_to_thread(user_id: int, message: AssistantMessageCreate, db: Ses
         content=message.content,
         created_at=datetime.utcnow()
     )
+    
     db.add(new_message)
     db.commit()
     db.refresh(new_message)
-    
-    return new_message
 
-# 메시지 실행
-@router.post("/assistant/threads/{user_id}/messages/{message_id}/run")
-async def run_assistant_message(user_id: int, message_id: str, db: Session = Depends(get_db)):
-    thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
-    if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
-
-    # 해당 스레드의 메시지 찾기
-    message = db.query(AssistantMessage).filter(AssistantMessage.message_id == message_id).first()
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-    
-    # 스트리밍 방식으로 메시지 실행
     async with client.beta.threads.runs.stream(
         thread_id=thread.thread_id,
-        instructions="",  # system 및 개인화된 instruction 추가
-        event_handler=EventHandler(db, thread.thread_id, message_id),
+        instructions="",
+        event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
     ) as stream:
         stream.until_done()
 
-    return {"status": "Run executed", "message": message.content}
+    return {"status": "Message created and executed", "message": new_message.content}
 
 # 특정 스레드의 메시지 조회
-@router.get("/assistant/threads/{user_id}/messages")
-def get_messages_by_thread(user_id: int, db: Session = Depends(get_db)):
+@router.get("/messages/{user_id}")
+async def get_messages_by_thread(user_id: int, db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -141,23 +136,20 @@ def get_messages_by_thread(user_id: int, db: Session = Depends(get_db)):
     messages = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).all()
     if not messages:
         raise HTTPException(status_code=404, detail="No messages found for this thread")
+    
     return messages
 
-# 메시지 삭제
-@router.delete("/assistant/messages/{user_id}/{message_id}")
-def delete_message(user_id: int, message_id: str, db: Session = Depends(get_db)):
-    thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
-    if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
 
-    # 해당 스레드의 메시지 찾기
-    message = db.query(AssistantMessage).filter(AssistantMessage.message_id == message_id).first()
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-    
-    db.delete(message)
-    db.commit()
-    return {"message": "Message deleted successfully"}
+#       .oooooo.                                               .o.       ooooo
+#      d8P'  `Y8b                                             .888.      `888'
+#     888      888 oo.ooooo.   .ooooo.  ooo. .oo.            .8"888.      888 
+#     888      888  888' `88b d88' `88b `888P"Y88b          .8' `888.     888 
+#     888      888  888   888 888ooo888  888   888         .88ooo8888.    888 
+#     `88b    d88'  888   888 888    .o  888   888        .8'     `888.   888 
+#      `Y8bood8P'   888bod8P' `Y8bod8P' o888o o888o      o88o     o8888o o888o
+#                   888                                                       
+#                  o888o                                                 
+
 class EventHandler(AssistantEventHandler):
     def __init__(self, db: Session, thread_id: str, message_id: str):
         self.db = db
@@ -165,49 +157,36 @@ class EventHandler(AssistantEventHandler):
         self.message_id = message_id
         self.current_run = None
 
-    def update_message_status(self, status: str):
+    def update_message_status(self):
         message = self.db.query(AssistantMessage).filter(AssistantMessage.message_id == self.message_id).first()
         if message:
-            message.status = status
+            message.status = self.status
             self.db.commit()
-            print(f"Message {self.message_id} status updated to {status}")
+            print(f"Message {self.message_id} status updated to {self.status}")
 
     def on_event(self, event: Any) -> None:
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
+            self.update_message_status()
             self.handle_requires_action(event.data, run_id)
 
     @override
-    def on_thread_created(self, thread):
-        print(f"Thread Created: {thread.id}")
-        self.update_message_status("Thread Created")
-
-    @override
     def on_run_created(self, run):
-        print(f"Run Created: {run.id}")
         self.current_run = run
-        self.update_message_status("Run Created")
 
     @override
     def on_error(self, error: Any) -> None:
-        print(f"Error 발생: {error}")
-        self.update_message_status(f"Error: {error}")
-        # 에러 보고 혹은 raise?
-        # raise HTTPException(status_code=404, detail="Error 발생")
+        print(f'Error: {error}')
 
     @override
     def on_tool_call_created(self, tool_call):
-        print(f"Tool Call Created: {tool_call.function}")
-        self.update_message_status(f"Tool Call Created: {tool_call.function.name}")
         self.function_name = tool_call.function.name
         self.tool_id = tool_call.id
-        # print({self.current_run.status})
-        # print(f"\nassistant > {tool_call.type} {self.function_name}\n", flush=True)
+
 
     @override
     def handle_requires_action(self, data, run_id):
         tool_outputs = []
-        self.update_message_status("Action Required")
 
         for tool in data.required_action.submit_tool_outputs.tool_calls:
             if tool.function.name == "getUltraSrtFcst":
