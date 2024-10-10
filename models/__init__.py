@@ -20,5 +20,6 @@ from .user_crud import (
     get_user_by_phone,
     get_all_users,
     update_user,
+    get_user_by_email,
     del_user
 )

@@ -89,7 +89,7 @@ async def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 #    o8o        o888o `Y8bod8P' 8""888P' 8""888P' `Y888""8o `8oooooo.  `Y8bod8P'
 #                                                           d"     YD           
 #                                                           "Y88888P'           
-
+# user id 말고 엑세스토큰으로 찾아야하지 않을까?
 @router.post("/message/{user_id}", response_model=AssistantMessageCreate)
 async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db: Session = Depends(get_db)):
 

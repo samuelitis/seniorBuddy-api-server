@@ -9,6 +9,10 @@ def get_user_by_id(db: Session, user_id: int):
 def get_user_by_phone(db: Session, phone_number: str):
     return db.query(User).filter(User.phone_number == phone_number).first()
 
+# 이메일로 사용자 조회
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
+
 # 모든 사용자 조회
 def get_all_users(db: Session):
     return db.query(User).all()

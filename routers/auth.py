@@ -2,44 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from models import RefreshToken, User, UserType, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse, get_user_by_id
-from utils import verify_password, create_access_token, create_refresh_token, get_user_from_token, is_valid_phone, is_valid_email, validate_password_strength, hash_password
+from utils import verify_password, create_access_token, create_refresh_token, get_user_from_token, is_valid_phone, is_valid_email, validate_password_strength, hash_password, decode_token
 from database import get_db
 from datetime import datetime, timedelta
-from utils import REFRESH_TOKEN_EXPIRE_DAYS
+from utils import get_valid_refresh_token, store_refresh_token, revoke_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS
+from jose import JWTError, ExpiredSignatureError
+
 import uuid
+
 
 router = APIRouter()
 
 ### JWT 인증 및 토큰 관리 API ###
-
-#     ooooooooo.              .o88o.                             oooo       
-#     `888   `Y88.            888 `"                             `888       
-#      888   .d88'  .ooooo.  o888oo  oooo d8b  .ooooo.   .oooo.o  888 .oo.  
-#      888ooo88P'  d88' `88b  888    `888""8P d88' `88b d88(  "8  888P"Y88b 
-#      888`88b.    888ooo888  888     888     888ooo888 `"Y88b.   888   888 
-#      888  `88b.  888    .o  888     888     888    .o o.  )88b  888   888 
-#     o888o  o888o `Y8bod8P' o888o   d888b    `Y8bod8P' 8""888P' o888o o888o
-
-# 리프레시 토큰을 통한 액세스 토큰 재발급
-@router.post("/refresh", response_model=TokenResponse)
-def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
-    valid_token = get_valid_refresh_token(db, refresh_token)
-    user_id = valid_token.user_id
-    
-    revoke_refresh_token(db, refresh_token)
-    
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    access_token = create_access_token({"sub": user.user_id})
-    new_refresh_token = create_refresh_token({"sub": user.user_id})
-    refresh_token_expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    
-    store_refresh_token(db, new_refresh_token, user.user_id, refresh_token_expires_at)
-    
-    return TokenResponse(access_token=access_token, refresh_token=new_refresh_token)
-
 
 
 #      .oooooo..o  o8o                                                    
@@ -163,10 +137,17 @@ def login_for_access_token(data: LoginData, db: Session = Depends(get_db)):
 
 # 로그아웃
 @router.post("/logout")
-def logout(refresh_token: str, db: Session = Depends(get_db)):
-    revoke_refresh_token(db, refresh_token)
-    # 로그아웃 성공 응답
-    # 해당 부분은 NextJS 에서 쿠키 삭제를 하도록 해야함
+def logout(request: Request, db: Session = Depends(get_db)):
+    # 액세스 토큰을 이용해 유저 인증
+    user = get_user_from_token(request, db)
+    
+    # 유저의 리프레시 토큰을 삭제하여 세션을 종료
+    refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
+    
+    if refresh_token:
+        db.delete(refresh_token)
+        db.commit()
+
     return JSONResponse(content={"message": "Logged out successfully"})
 
 
@@ -177,32 +158,7 @@ def logout(refresh_token: str, db: Session = Depends(get_db)):
 
 
 
-# 리프레시 토큰 조회 및 검증 함수
-def get_valid_refresh_token(db: Session, token: str):
-    refresh_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
-    if not refresh_token:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-    
-    if refresh_token.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=401, detail="Refresh token expired")
-    
-    return refresh_token
 
-# 기존 리프레시 토큰 무효화 함수
-def revoke_refresh_token(db: Session, token: str):
-    refresh_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
-    if refresh_token:
-        db.delete(refresh_token)
-        db.commit()
 
-# 리프레시 토큰 저장 함수
-def store_refresh_token(db: Session, token: str, user_id: int, expires_at: datetime):
-    refresh_token = RefreshToken(
-        token=token,
-        user_id=user_id,
-        expires_at=expires_at
-    )
-    db.add(refresh_token)
-    db.commit()
-    db.refresh(refresh_token)
-    return refresh_token
+
+
