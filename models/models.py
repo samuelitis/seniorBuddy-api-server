@@ -1,18 +1,21 @@
-from sqlalchemy import Column, Integer, String, Enum, Float, DateTime, ForeignKey, TEXT
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, TEXT
+from sqlalchemy import Enum as SQLAEnum
 from sqlalchemy.orm import relationship
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 from database import Base
-import enum
 from datetime import datetime
+from enum import Enum
 
 # 사용자 유형 Enum 정의
-class UserType(enum.Enum):
+class UserType(str, Enum):
     senior = 'senior'
     guardian = 'guardian'
     external_company = 'external_company'
     admin = 'admin'
 
 # 메시지 전송자 유형 Enum 정의
-class SenderType(enum.Enum):
+class SenderType(str, Enum):
     user = 'user'
     system = 'system'
     assistant = 'assistant'
@@ -25,7 +28,7 @@ class User(Base):
     user_real_name = Column(String(100), nullable=False)
     user_uuid = Column(String(36), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    user_type = Column(Enum(UserType), nullable=False)
+    user_type = Column(SQLAEnum(UserType), nullable=False)
     phone_number = Column(String(20), nullable=False)
     email = Column(String(100), unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -55,7 +58,7 @@ class AssistantMessage(Base):
 
     message_id = Column(String(36), primary_key=True, index=True)
     thread_id = Column(String(36), ForeignKey('assistant_threads.thread_id'), unique=True, nullable=False)
-    sender_type = Column(Enum(SenderType), nullable=False)
+    sender_type = Column(SQLAEnum(SenderType), nullable=False)
     status_type = Column(TEXT, nullable=False)
     content = Column(TEXT, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -63,7 +66,6 @@ class AssistantMessage(Base):
     thread = relationship("AssistantThread", back_populates="message")
 
 
-# RefreshTokens 테이블 정의
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
@@ -72,3 +74,64 @@ class RefreshToken(Base):
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+
+
+# 사용자 생성/조회 스키마
+class UserCreate(BaseModel):
+    user_real_name: str
+    password: str
+    user_type: UserType
+    phone_number: str
+    email: Optional[EmailStr] = None
+
+    class Config:
+        from_attributes = True
+
+# 스레드 생성/조회 스키마
+class AssistantThreadCreate(BaseModel):
+    run_state: str
+    run_id: str
+
+    class Config:
+        from_attributes = True
+
+# 메시지 생성/조회 스키마
+class AssistantMessageCreate(BaseModel):
+    sender_type: str
+    content: str
+
+    class Config:
+        from_attributes = True
+
+class UserResponse(BaseModel):
+    user_real_name: str
+    user_type: UserType
+    phone_number: str
+    email: Optional[EmailStr] = None
+
+    class Config:
+        from_attributes = True
+class RegisterResponse(BaseModel):
+    user_real_name: str
+    user_type: str
+    phone_number: str
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class LoginData(BaseModel):
+    identifier: str  # 이메일 또는 전화번호 그냥 문자열로 받음
+    password: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "identifier": "user@example.com or 010-1234-5678",
+                "password": "password123"
+            }
+        }

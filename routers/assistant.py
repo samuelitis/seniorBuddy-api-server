@@ -2,11 +2,10 @@ import os, json
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from schemas import AssistantThreadCreate, AssistantMessageCreate
+from models import AssistantThreadCreate, AssistantMessageCreate
 from database import get_db
 from models import AssistantThread, AssistantMessage
 from datetime import datetime
-from schemas import AssistantThreadCreate
 from openai import AsyncAssistantEventHandler, AsyncOpenAI, AssistantEventHandler, OpenAI
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
@@ -14,9 +13,15 @@ from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
 from functions import getUltraSrtFcst
-from utils import is_valid_injection
 
-
+__INSTRUCTIONS__ = """
+당신은 어르신을 돕는 시니어 도우미입니다. 
+당신의 이름은 '애비'입니다. 
+답변은 짧게 구성을 하며, 어르신을 대할 때는 친근하고 따뜻한 말투를 사용해야합니다.
+복잡한 정보는 간단하게 풀어 설명하고, 쉬운 단어를 사용하여 어르신이 편하게 이해할 수 있도록 돕습니다.
+어르신이 이전 대화를 기억하지 못할 때, 간단하게 요약해서 설명해 주세요. 예를 들어, '조금 전에 말씀하셨던 내용은 ~였습니다.'와 같은 방식으로 대화를 요약하세요. 
+사용자는 대화 모드를 수행중입니다. 특수문자를 사용하지말고 대화형식으로 답변하세요
+"""
 
 router = APIRouter()
 assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
@@ -33,17 +38,17 @@ def override(method: Any) -> Any:
 #         888       888   888   888     888ooo888  .oP"888  888   888 
 #         888       888   888   888     888    .o d8(  888  888   888 
 #        o888o     o888o o888o d888b    `Y8bod8P' `Y888""8o `Y8bod88P"
+# run state : created, running, processing, waiting, done
 
 # 스레드 생성
 async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
-    # OpenAI API를 통해 스레드 생성
     thread = client.beta.threads.create()
     
     assistant_thread = AssistantThread(
         user_id=user_id,
         thread_id=thread.id,
         created_at=datetime.utcnow(),
-        run_state="created",  # 초기 상태
+        run_state="created",
         run_id=thread.run_id
     )
     
@@ -54,6 +59,8 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     return assistant_thread
 
 # 특정 사용자의 스레드 조회
+# id 말고 엑세스토큰으로 찾아야하지 않을까?
+# 
 @router.get("/threads/{user_id}")
 async def get_threads_by_user(user_id: int, db: Session = Depends(get_db)):
     threads = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).all()
@@ -85,8 +92,6 @@ async def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 
 @router.post("/message/{user_id}", response_model=AssistantMessageCreate)
 async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db: Session = Depends(get_db)):
-    if not is_valid_injection(message.content):
-        raise HTTPException(status_code=400, detail="Invalid input")
 
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
@@ -104,7 +109,6 @@ async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db:
         content=message.content
     )
 
-    # 메시지 DB에 저장
     new_message = AssistantMessage(
         thread_id=thread.thread_id,
         sender_type="user",
@@ -119,7 +123,7 @@ async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db:
 
     async with client.beta.threads.runs.stream(
         thread_id=thread.thread_id,
-        instructions="",
+        instructions=__INSTRUCTIONS__,
         event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
     ) as stream:
         stream.until_done()

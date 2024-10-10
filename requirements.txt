@@ -11,5 +11,5 @@ starlette==0.38.5
 slowapi
 typing-extensions
 fastapi==0.115.0
-pyjwt
 passlib==1.7.4s
+python-jose

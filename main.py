@@ -43,6 +43,7 @@ import sqlite3
 import models
 from routers import user, assistant, auth
 from database import engine, Base
+from middleware import sql_injection_middleware
 
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -92,6 +93,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
 
 # HTTPS 리다이렉트
 # app.add_middleware(HTTPSRedirectMiddleware)

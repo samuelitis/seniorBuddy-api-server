@@ -1,12 +1,12 @@
 import os, re
-import jwt
+from jose import jwt
 from re import search, match
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from fastapi import Header, HTTPException, Depends
 from sqlalchemy.orm import Session
 from database import get_db
-from models import User, RefreshToken
+from models import User
 
 SECRET_KEY = os.getenv("HASH_KEY")
 ALGORITHM = "HS256"
@@ -82,36 +82,6 @@ def get_user_from_token(authorization: str = Header(None), db: Session = Depends
     
     return user
 
-# 리프레시 토큰 저장 함수
-def store_refresh_token(db: Session, token: str, user_id: int, expires_at: datetime):
-    refresh_token = RefreshToken(
-        token=token,
-        user_id=user_id,
-        expires_at=expires_at
-    )
-    db.add(refresh_token)
-    db.commit()
-    db.refresh(refresh_token)
-    return refresh_token
-
-# 리프레시 토큰 조회 및 검증 함수
-def get_valid_refresh_token(db: Session, token: str):
-    refresh_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
-    if not refresh_token:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-    
-    if refresh_token.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=401, detail="Refresh token expired")
-    
-    return refresh_token
-
-# 기존 리프레시 토큰 무효화 함수
-def revoke_refresh_token(db: Session, token: str):
-    refresh_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
-    if refresh_token:
-        db.delete(refresh_token)
-        db.commit()
-
 
 # 비밀번호 강도 확인 함수 (특수문자, 영어 대소문자, 숫자만 허용)
 def validate_password_strength(password: str):
@@ -127,17 +97,4 @@ def validate_password_strength(password: str):
     
     if not re.search(r"[0-9]", password):
         raise HTTPException(status_code=400, detail="비밀번호에는 하나 이상의 숫자가 포함되어야 합니다.")
-    return True
-
-# SQL 인젝션 해킹 방지용 함수
-def is_valid_injection(input: str) -> bool:
-    # 위험한 SQL 패턴에 대한 정규 표현식
-    sql_injection = re.compile(
-        r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|GRANT|REVOKE|UNION|--|#|/\*|\*/|;)\b|'|\"|=|--|\|\||\bOR\b|\bAND\b)",
-        re.IGNORECASE
-    )
-    
-    # 입력 값이 SQL 인젝션 패턴에 맞는지 확인
-    if sql_injection.search(input):
-        return False
     return True

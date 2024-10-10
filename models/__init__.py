@@ -4,7 +4,15 @@ from .models import (
     User,
     AssistantThread,
     AssistantMessage,
-    RefreshToken
+    RefreshToken,
+    UserType, 
+    UserCreate, 
+    AssistantThreadCreate, 
+    AssistantMessageCreate,
+    UserResponse,
+    TokenResponse,
+    LoginData,
+    RegisterResponse,
 )
 
 from .user_crud import (
@@ -12,5 +20,5 @@ from .user_crud import (
     get_user_by_phone,
     get_all_users,
     update_user,
-    delete_user
+    del_user
 )

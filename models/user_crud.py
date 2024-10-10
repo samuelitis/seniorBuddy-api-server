@@ -24,7 +24,7 @@ def update_user(db: Session, user_id: int, user_update: dict):
     return user
 
 # 사용자 삭제
-def delete_user(db: Session, user_id: int):
+def del_user(db: Session, user_id: int):
     user = db.query(User).filter(User.user_id == user_id).first()
     if user:
         db.delete(user)
