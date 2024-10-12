@@ -20,7 +20,8 @@
 
 3. **Docker 컨테이너 생성**
    ```bash
-   docker-compose up -d build
+   docker build -t [image] .
+   docker run -d -p 8000:8000 [image]
    ```
 
 4. **uvicorn 실행**  
