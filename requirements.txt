@@ -12,3 +12,4 @@ typing-extensions
 fastapi==0.115.0
 passlib
 python-jose
+mysql-connector-python
