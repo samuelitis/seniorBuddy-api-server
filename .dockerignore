@@ -1,6 +1,6 @@
 .env
 .git
-config.py
+utils/config.py
 __pycache__
 
 *.pyc
