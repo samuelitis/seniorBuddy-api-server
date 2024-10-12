@@ -14,4 +14,3 @@ from .utils import (
     check_access_token,
     REFRESH_TOKEN_EXPIRE_DAYS
 )
-from .config import Config

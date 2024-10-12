@@ -11,8 +11,7 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import sqlite3
-from config import Config
-
+from utils.config import Config
 from routers import user, assistant, auth
 from database import engine, Base
 from middleware import sql_injection_middleware

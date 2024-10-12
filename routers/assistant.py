@@ -13,7 +13,7 @@ from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
 from functions import getUltraSrtFcst
-from config import Config
+from utils.config import Config
 
 __INSTRUCTIONS__ = """
 당신은 어르신을 돕는 시니어 도우미입니다. 

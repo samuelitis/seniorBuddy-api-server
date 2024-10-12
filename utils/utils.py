@@ -7,7 +7,7 @@ from fastapi import Header, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, RefreshToken
-from config import Config
+from utils.config import Config
 
 SECRET_KEY = Config.HASH_KEY
 ALGORITHM = "HS256"

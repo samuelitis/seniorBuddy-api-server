@@ -5,7 +5,7 @@ import sqlite3
 import xml.etree.ElementTree as ET
 import numpy as np
 import requests
-from config import Config
+from utils.config import Config
 
 weather_key = Config.WEATHER_KEY
 
