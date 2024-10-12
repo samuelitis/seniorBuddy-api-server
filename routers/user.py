@@ -106,7 +106,7 @@ def reset_password(request: Request, new_password: str, db: Session = Depends(ge
 
 ### 경도와 위도 정보 업데이트 API ###
 
-@router.put("/{user_id}/update-location")
+@router.put("/update-location")
 def update_location(request: Request, latitude: float, longitude: float, db: Session = Depends(get_db)):
     user = check_access_token(request, db)
     if not user:

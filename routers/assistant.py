@@ -1,10 +1,10 @@
 import os, json
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from models import AssistantThreadCreate, AssistantMessageCreate
+from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage
 from database import get_db
-from models import AssistantThread, AssistantMessage
+from utils import check_access_token
 from datetime import datetime
 from openai import AsyncAssistantEventHandler, AsyncOpenAI, AssistantEventHandler, OpenAI
 from openai.types.beta.threads import Text, TextDelta
@@ -19,7 +19,7 @@ __INSTRUCTIONS__ = """
 당신의 이름은 '애비'입니다. 
 답변은 짧게 구성을 하며, 어르신을 대할 때는 친근하고 따뜻한 말투를 사용해야합니다.
 복잡한 정보는 간단하게 풀어 설명하고, 쉬운 단어를 사용하여 어르신이 편하게 이해할 수 있도록 돕습니다.
-어르신이 이전 대화를 기억하지 못할 때, 간단하게 요약해서 설명해 주세요. 예를 들어, '조금 전에 말씀하셨던 내용은 ~였습니다.'와 같은 방식으로 대화를 요약하세요. 
+어르신이 이전 대화를 기억하지 못할 때, 다시한번 말하기도 해야합니다.
 사용자는 대화 모드를 수행중입니다. 특수문자를 사용하지말고 대화형식으로 답변하세요
 """
 
@@ -61,16 +61,24 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 # 특정 사용자의 스레드 조회
 # id 말고 엑세스토큰으로 찾아야하지 않을까?
 # 
-@router.get("/threads/{user_id}")
-async def get_threads_by_user(user_id: int, db: Session = Depends(get_db)):
+@router.get("/threads")
+async def get_threads_by_user(request: Request, db: Session = Depends(get_db)):
+    user = check_access_token(request, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_id = user.user_id
     threads = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).all()
     if not threads:
         raise HTTPException(status_code=404, detail="No threads found for this user")
     return threads
 
 # 스레드 삭제
-@router.delete("/threads/{user_id}")
-async def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
+@router.delete("/threads")
+async def delete_assistant_thread(request: Request, db: Session = Depends(get_db)):
+    user = check_access_token(request, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_id = user.user_id
     # user_id로 해당 유저의 스레드를 찾음
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
@@ -90,8 +98,12 @@ async def delete_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 #                                                           d"     YD           
 #                                                           "Y88888P'           
 # user id 말고 엑세스토큰으로 찾아야하지 않을까?
-@router.post("/message/{user_id}", response_model=AssistantMessageCreate)
-async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db: Session = Depends(get_db)):
+@router.post("/message", response_model=AssistantMessageCreate)
+async def add_and_run_message(request: Request, message: AssistantMessageCreate, db: Session = Depends(get_db)):
+    user = check_access_token(request, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_id = user.user_id
 
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
@@ -131,8 +143,13 @@ async def add_and_run_message(user_id: int, message: AssistantMessageCreate, db:
     return {"status": "Message created and executed", "message": new_message.content}
 
 # 특정 스레드의 메시지 조회
-@router.get("/messages/{user_id}")
-async def get_messages_by_thread(user_id: int, db: Session = Depends(get_db)):
+@router.get("/messages")
+async def get_messages_by_thread(request: Request, db: Session = Depends(get_db)):
+    user = check_access_token(request, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_id = user.user_id
+
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -204,17 +221,16 @@ class EventHandler(AssistantEventHandler):
 
     @override
     def submit_tool_outputs(self, tool_outputs):
-      with client.beta.threads.runs.submit_tool_outputs_stream(
-        thread_id=self.current_run.thread_id,
-        run_id=self.current_run.id,
-        tool_outputs=tool_outputs,
-        event_handler=EventHandler(),
-      ) as stream:
-        for text in stream.text_deltas:
-          print(text, end="", flush=True)
-        print()
+        with client.beta.threads.runs.submit_tool_outputs_stream(
+            thread_id=self.current_run.thread_id,
+            run_id=self.current_run.id,
+            tool_outputs=tool_outputs,
+            event_handler=EventHandler(),
+        ) as stream:
+            for text in stream.text_deltas:
+                print(text, end="", flush=True)
+            print()
 
     @override
     def on_message_done(self, message: Message) -> None:
         print(message.content[0].text.value)
-        # db에 업데이트 할것
