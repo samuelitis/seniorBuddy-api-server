@@ -6,16 +6,17 @@
    cd seniorBuddy-api-server
    ```
    
-2. `.env` **파일생성**  
+2. `config.py` **파일생성**  
   프로젝트 루프 디렉토리에 `.env`파일을 생성하고 환경변수를 등록합니다.
 
-   ```
-   OPENAI_API_KEY="openai에서 발급받은 api key"
-   OPENAI_ASSISTANT_ID="생성된 어시스턴트 id"
-   HASH_KEY="랜덤키"
-   WEATHER_KEY="기상청41 api key"
-   MYSQL_USER=mysql서버접속시 유저명
-   MYSQL_PASSWORD=mysql서버접속시 비번
+   ```python
+   class Config:
+      OPENAI_API_KEY="openai에서 발급받은 api key"
+      OPENAI_ASSISTANT_ID="생성된 어시스턴트 id"
+      HASH_KEY="랜덤키"
+      WEATHER_KEY="기상청41 api key"
+      MYSQL_USER=mysql서버접속시 유저명
+      MYSQL_PASSWORD=mysql서버접속시 비번
    ```
 
 3-1. **Docker 컨테이너 생성**
