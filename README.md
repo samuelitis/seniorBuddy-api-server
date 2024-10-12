@@ -15,8 +15,8 @@
       OPENAI_ASSISTANT_ID="생성된 어시스턴트 id"
       HASH_KEY="랜덤키"
       WEATHER_KEY="기상청41 api key"
-      MYSQL_USER=mysql서버접속시 유저명
-      MYSQL_PASSWORD=mysql서버접속시 비번
+      MYSQL_USER="mysql서버접속시 유저명"
+      MYSQL_PASSWORD="mysql서버접속시 비번"
    ```
 
 3-1. **Docker 컨테이너 생성**
