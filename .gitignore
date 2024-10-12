@@ -7,3 +7,4 @@ __pycache__
 test.ipynb
 weather_data
 database/*.xlsx
+config.py
