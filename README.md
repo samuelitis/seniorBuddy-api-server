@@ -5,10 +5,8 @@
    git clone https://github.com/seniorBuddy/seniorBuddy-api-server.git
    cd seniorBuddy-api-server
    ```
-   
 2. `config.py` **파일생성**  
   프로젝트 루프 디렉토리에 `.env`파일을 생성하고 환경변수를 등록합니다.
-
    ```python
    class Config:
       OPENAI_API_KEY="openai에서 발급받은 api key"
@@ -18,16 +16,8 @@
       MYSQL_USER="mysql서버접속시 유저명"
       MYSQL_PASSWORD="mysql서버접속시 비번"
    ```
-
-3-1. **Docker 컨테이너 생성**
+3. **Docker 컨테이너 생성**
    ```bash
    docker build -t [image] .
    docker run -d -p 8000:8000 [image]
-   ```
-
-
-
-3-2. **uvicorn 실행**  
-   ```bash
-   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
    ```
