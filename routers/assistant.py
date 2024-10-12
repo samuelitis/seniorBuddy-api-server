@@ -25,7 +25,8 @@ __INSTRUCTIONS__ = """
 
 router = APIRouter()
 assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
-client = OpenAI()
+openai_api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=openai_api_key)
 
 def override(method: Any) -> Any:
     return method
