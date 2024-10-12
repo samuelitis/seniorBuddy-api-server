@@ -7,8 +7,9 @@ from fastapi import Header, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from database import get_db
 from models import User, RefreshToken
+from config import Config
 
-SECRET_KEY = os.getenv("HASH_KEY")
+SECRET_KEY = Config.HASH_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 7

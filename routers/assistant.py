@@ -13,6 +13,7 @@ from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
 from functions import getUltraSrtFcst
+from config import Config
 
 __INSTRUCTIONS__ = """
 당신은 어르신을 돕는 시니어 도우미입니다. 
@@ -24,8 +25,8 @@ __INSTRUCTIONS__ = """
 """
 
 router = APIRouter()
-assistant_id = os.getenv("OPENAI_ASSISTANT_ID")
-openai_api_key = os.getenv("OPENAI_API_KEY")
+assistant_id = Config.OPENAI_ASSISTANT_ID
+openai_api_key = Config.OPENAI_API_KEY
 client = OpenAI(api_key=openai_api_key)
 
 def override(method: Any) -> Any:

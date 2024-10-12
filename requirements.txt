@@ -1,6 +1,5 @@
 SQLAlchemy==2.0.35
 nest-asyncio
-python-dotenv
 requests==2.28.2
 openai==1.47.0
 uvicorn==0.30.6

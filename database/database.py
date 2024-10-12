@@ -1,11 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
+from config import Config
 
-db_name, db_pwd = os.getenv("MYSQL_USER"), os.getenv("MYSQL_PASSWORD")
-
-DATABASE_URL = f"mysql+mysqlconnector://{db_name}:{db_pwd}@localhost:3306/seniorbuddy_db"
+DATABASE_URL = f"mysql+mysqlconnector://{Config.MYSQL_USER}:{Config.MYSQL_PASSWORD}@{Config.MYSQL_HOST}:{Config.MYSQL_PORT}/seniorbuddy_db"
 
 
 # DB 연결 설정
