@@ -13,6 +13,10 @@ from .models import (
     TokenResponse,
     LoginData,
     RegisterResponse,
+    MedicationTimeCreate,
+    MedicationTimeUpdate,
+    ReminderCreate,
+    ReminderUpdate,
 )
 
 from .user_crud import (

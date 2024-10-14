@@ -145,3 +145,15 @@ class MedicationTimeUpdate(BaseModel):
     medication_name: str = None
     dosage: str = None
     medication_time: time = None
+
+class ReminderCreate(BaseModel):
+    content: str
+    mind_date: str
+    mind_time: time
+    type: str
+
+class ReminderUpdate(BaseModel):
+    content: str = None
+    mind_date: str = None
+    mind_time: time = None
+    type: str = None

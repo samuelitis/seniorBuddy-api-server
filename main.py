@@ -12,7 +12,7 @@ nest_asyncio.apply()
 
 import sqlite3
 from utils.config import variables
-from routers import user, assistant, auth, medication
+from routers import medication, reminder, user, assistant, auth
 from database import engine, Base
 from middleware import sql_injection_middleware
 
@@ -82,6 +82,7 @@ app.include_router(user.router, prefix="/users", tags=["Users"])
 app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(medication.router, prefix="/medication", tags=["Medication"])
+app.include_router(reminder.router, prefix="/reminer", tags=["Reminer"])
 
 # if __name__ == "__main__":
 #     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
