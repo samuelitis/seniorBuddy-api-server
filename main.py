@@ -11,8 +11,8 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import sqlite3
-from utils.config import Config
-from routers import user, assistant, auth
+from utils.config import variables
+from routers import user, assistant, auth, medication
 from database import engine, Base
 from middleware import sql_injection_middleware
 
@@ -24,9 +24,9 @@ from slowapi.util import get_remote_address
 from fastapi import FastAPI
 
 # 환경변수 호출
-assistant_id = Config.OPENAI_ASSISTANT_ID
-weather_key = Config.WEATHER_KEY
-hash_key = Config.HASH_KEY
+assistant_id = variables.OPENAI_ASSISTANT_ID
+weather_key = variables.WEATHER_KEY
+hash_key = variables.HASH_KEY
 
 # 내부 DB 연결
 try:
@@ -81,6 +81,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(user.router, prefix="/users", tags=["Users"])
 app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(medication.router, prefix="/medication", tags=["Medication"])
 
 # if __name__ == "__main__":
 #     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from database import Base
-from datetime import datetime
+from datetime import time, datetime
 from enum import Enum
 
 # 사용자 유형 Enum 정의
@@ -135,3 +135,13 @@ class LoginData(BaseModel):
                 "password": "password123"
             }
         }
+
+class MedicationTimeCreate(BaseModel):
+    medication_name: str
+    dosage: str
+    medication_time: time
+
+class MedicationTimeUpdate(BaseModel):
+    medication_name: str = None
+    dosage: str = None
+    medication_time: time = None

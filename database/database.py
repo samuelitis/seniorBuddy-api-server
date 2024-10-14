@@ -1,10 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from utils.config import Config
+from utils.config import variables
 
-DATABASE_URL = f"mysql+mysqlconnector://{Config.MYSQL_USER}:{Config.MYSQL_PASSWORD}@{Config.MYSQL_HOST}:{Config.MYSQL_PORT}/seniorbuddy_db"
-
+DATABASE_URL = f"mysql+mysqlconnector://{variables.MYSQL_USER}:{variables.MYSQL_PASSWORD}@{variables.MYSQL_HOST}:{variables.MYSQL_PORT}/seniorbuddy_db"
 
 # DB 연결 설정
 engine = create_engine(

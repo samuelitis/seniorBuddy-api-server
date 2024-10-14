@@ -5,9 +5,9 @@ import sqlite3
 import xml.etree.ElementTree as ET
 import numpy as np
 import requests
-from utils.config import Config
+from utils.config import variables
 
-weather_key = Config.WEATHER_KEY
+weather_key = variables.WEATHER_KEY
 
 # 로컬 DB 가 아닌 DB서버에 연결해서 사용할 수 있도록 해야할 듯함
 # 하지만 cache 파일을 구성하는 것이므로 그럴 필요가 있을 것인지?

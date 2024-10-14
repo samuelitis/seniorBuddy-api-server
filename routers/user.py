@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from sqlalchemy.orm import Session
-from models import UserResponse, get_user_by_id, get_user_by_phone, get_user_by_email, del_user
+from models import UserResponse, get_user_by_id
 from database import get_db
 from datetime import datetime
 import uuid
-from utils import check_access_token, hash_password, is_valid_phone, is_valid_email, get_user_from_token, REFRESH_TOKEN_EXPIRE_DAYS
+from utils import hash_password, is_valid_phone, is_valid_email, token_manager
 
 router = APIRouter()
 ### 사용자 관리 API ###
@@ -19,17 +19,35 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 # 사용자 정보 조회
 @router.get("/user/me", response_model=UserResponse)
-def get_user_me(request: Request, db: Session = Depends(get_db)):
-    # 액세스 토큰을 확인하고, 만료된 경우 갱신
-    user = check_access_token(request, db)
+def get_user_me(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+    
+    if not user_id:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user = get_user_by_id(db, user_id)
     return user
+
 
 ### 사용자 정보 수정 API ###
 @router.put("/update-info/", response_model=UserResponse)
-def update_user_info(request: Request, user_update: UserResponse, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    if not user:
+def update_user_info(user_update: UserResponse, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+    
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
         raise HTTPException(status_code=404, detail="User not found")
+
+    user = get_user_by_id(db, user_id)
     
     # 업데이트할 정보가 있을 때만 수정
     # 무엇이 업데이트 되었는지 정보를 넘겨줄 필요가 있는지?
@@ -66,11 +84,24 @@ def update_user_info(request: Request, user_update: UserResponse, db: Session = 
 # 이런 부분은 어떻게 구현할지 고민해보아야함
 # user id 말고 다른 정보로 삭제를 할 수 있어야하지 않을까?
 @router.delete("/delete/")
-def delete_user(request: Request, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    deleted_user = del_user(db, user.user_id)
+def delete_user(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    deleted_user = get_user_by_id(db, user_id)
     if not deleted_user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    db.delete(deleted_user)
+    db.commit()
+    
     return {"message": "User deleted"}
 
 
@@ -85,14 +116,22 @@ def delete_user(request: Request, db: Session = Depends(get_db)):
 ### 비밀번호 재설정 API ###
 
 @router.post("/reset-password")
-def reset_password(request: Request, new_password: str, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
+def reset_password(new_password: str, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
 
-    if not user:
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
         raise HTTPException(status_code=404, detail="User not found")
+
+    user = get_user_by_id(db, user_id)
     user.password_hash = hash_password(new_password)
     db.commit()
     db.refresh(user)
+
     return {"message": "Password reset successful"}
 
 
@@ -107,14 +146,22 @@ def reset_password(request: Request, new_password: str, db: Session = Depends(ge
 ### 경도와 위도 정보 업데이트 API ###
 
 @router.put("/update-location")
-def update_location(request: Request, latitude: float, longitude: float, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    if not user:
+def update_location(latitude: float, longitude: float, authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
         raise HTTPException(status_code=404, detail="User not found")
+
+    user = get_user_by_id(db, user_id)
+
     user.latitude = latitude
     user.longitude = longitude
     user.last_update_location = datetime.utcnow()
     db.commit()
     db.refresh(user)
     return {"message": "Location updated successfully"}
-

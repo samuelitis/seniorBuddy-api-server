@@ -1,10 +1,9 @@
 import os, json
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from sqlalchemy.orm import Session
 from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage
 from database import get_db
-from utils import check_access_token
 from datetime import datetime
 from openai import AsyncAssistantEventHandler, AsyncOpenAI, AssistantEventHandler, OpenAI
 from openai.types.beta.threads import Text, TextDelta
@@ -13,7 +12,8 @@ from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
 from functions import getUltraSrtFcst
-from utils.config import Config
+from utils.config import variables
+from utils import token_manager
 
 __INSTRUCTIONS__ = """
 당신은 어르신을 돕는 시니어 도우미입니다. 
@@ -25,8 +25,8 @@ __INSTRUCTIONS__ = """
 """
 
 router = APIRouter()
-assistant_id = Config.OPENAI_ASSISTANT_ID
-openai_api_key = Config.OPENAI_API_KEY
+assistant_id = variables.OPENAI_ASSISTANT_ID
+openai_api_key = variables.OPENAI_API_KEY
 client = OpenAI(api_key=openai_api_key)
 
 def override(method: Any) -> Any:
@@ -64,24 +64,35 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 # id 말고 엑세스토큰으로 찾아야하지 않을까?
 # 
 @router.get("/threads")
-async def get_threads_by_user(request: Request, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    if not user:
+async def get_threads_by_user(request: Request, db: Session = Depends(get_db), authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+    
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
         raise HTTPException(status_code=404, detail="User not found")
-    user_id = user.user_id
+
     threads = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).all()
     if not threads:
         raise HTTPException(status_code=404, detail="No threads found for this user")
-    return threads
 
+    return threads
 # 스레드 삭제
 @router.delete("/threads")
-async def delete_assistant_thread(request: Request, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    if not user:
+async def delete_assistant_thread(request: Request, db: Session = Depends(get_db), authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+    
+    token = authorization.split(" ")[1]  # Bearer 토큰 형식
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
         raise HTTPException(status_code=404, detail="User not found")
-    user_id = user.user_id
-    # user_id로 해당 유저의 스레드를 찾음
+    
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -101,11 +112,16 @@ async def delete_assistant_thread(request: Request, db: Session = Depends(get_db
 #                                                           "Y88888P'           
 # user id 말고 엑세스토큰으로 찾아야하지 않을까?
 @router.post("/message", response_model=AssistantMessageCreate)
-async def add_and_run_message(request: Request, message: AssistantMessageCreate, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    if not user:
+async def add_and_run_message(request: Request, message: AssistantMessageCreate, db: Session = Depends(get_db), authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+    
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
         raise HTTPException(status_code=404, detail="User not found")
-    user_id = user.user_id
 
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
@@ -146,12 +162,17 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
 
 # 특정 스레드의 메시지 조회
 @router.get("/messages")
-async def get_messages_by_thread(request: Request, db: Session = Depends(get_db)):
-    user = check_access_token(request, db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user_id = user.user_id
+async def get_messages_by_thread(request: Request, db: Session = Depends(get_db), authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+    
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
 
+    if not user_id:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user_id).first()
     if not thread:
         raise HTTPException(status_code=404, detail="Thread not found")
