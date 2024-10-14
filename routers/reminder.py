@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel
 from datetime import time
 
-from pytest import Session
+from sqlalchemy.orm import Session
 from database import get_db
 from models import ReminderCreate, ReminderUpdate, User
 from utils import token_manager
