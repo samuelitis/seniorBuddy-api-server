@@ -36,6 +36,7 @@ class User(Base):
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
     last_update_location = Column(DateTime, nullable=True)
+    ai_profile = Column(Integer, default=1)
 
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
 

@@ -165,3 +165,21 @@ def update_location(latitude: float, longitude: float, authorization: str = Head
     db.commit()
     db.refresh(user)
     return {"message": "Location updated successfully"}
+
+
+### 유저 프로필 API ###
+
+@router.get("/me/ai_profile")
+def get_user_ai_profile(authorization: str = Header(None), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+
+    token = authorization.split(" ")[1]
+    payload = token_manager.decode_token(token)
+    user_id = payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user = get_user_by_id(db, user_id)
+    return {"profile_number" : user.ai_profile}
