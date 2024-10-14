@@ -10,7 +10,7 @@ router = APIRouter()
 ### 사용자 관리 API ###
 
 # 특정 사용자 조회 <관리용> 
-@router.get("/info/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = get_user_by_id(db, user_id)
     if not user:
@@ -18,7 +18,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     return user
 
 # 사용자 정보 조회
-@router.get("/user/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse)
 def get_user_me(authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization token missing")
@@ -35,7 +35,7 @@ def get_user_me(authorization: str = Header(None), db: Session = Depends(get_db)
 
 
 ### 사용자 정보 수정 API ###
-@router.put("/update-info/", response_model=UserResponse)
+@router.put("/me", response_model=UserResponse)
 def update_user_info(user_update: UserResponse, authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization token missing")
@@ -83,7 +83,7 @@ def update_user_info(user_update: UserResponse, authorization: str = Header(None
 # 다른 테이블로 이동을 시켜줘야하지않는지?
 # 이런 부분은 어떻게 구현할지 고민해보아야함
 # user id 말고 다른 정보로 삭제를 할 수 있어야하지 않을까?
-@router.delete("/delete/")
+@router.delete("/me")
 def delete_user(authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization token missing")
@@ -115,7 +115,7 @@ def delete_user(authorization: str = Header(None), db: Session = Depends(get_db)
 #                                                        o888o                      
 ### 비밀번호 재설정 API ###
 
-@router.post("/reset-password")
+@router.post("/me/password")
 def reset_password(new_password: str, authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization token missing")
@@ -145,7 +145,7 @@ def reset_password(new_password: str, authorization: str = Header(None), db: Ses
 
 ### 경도와 위도 정보 업데이트 API ###
 
-@router.put("/update-location")
+@router.put("/me/location")
 def update_location(latitude: float, longitude: float, authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization token missing")
