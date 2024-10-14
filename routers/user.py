@@ -185,7 +185,7 @@ def get_user_ai_profile(authorization: str = Header(None), db: Session = Depends
     return {"profile_number" : user.ai_profile}
 
 @router.put("/me/ai_profile")
-def get_user_ai_profile(image_num: int = 0, authorization: str = Header(None), db: Session = Depends(get_db)):
+def change_user_ai_profile(image_num: int = 0, authorization: str = Header(None), db: Session = Depends(get_db)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization token missing")
 
