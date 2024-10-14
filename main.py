@@ -11,7 +11,7 @@ import nest_asyncio
 nest_asyncio.apply()
 
 import sqlite3
-from utils.config import Config
+from utils.config import variables
 from routers import user, assistant, auth
 from database import engine, Base
 from middleware import sql_injection_middleware
@@ -24,9 +24,9 @@ from slowapi.util import get_remote_address
 from fastapi import FastAPI
 
 # 환경변수 호출
-assistant_id = Config.OPENAI_ASSISTANT_ID
-weather_key = Config.WEATHER_KEY
-hash_key = Config.HASH_KEY
+assistant_id = variables.OPENAI_ASSISTANT_ID
+weather_key = variables.WEATHER_KEY
+hash_key = variables.HASH_KEY
 
 # 내부 DB 연결
 try:
