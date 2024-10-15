@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from sqlalchemy.orm import Session
-from models import UserResponse, get_user_by_id
+from models import UserResponse, get_user_by_id, User
 from database import get_db
 from datetime import datetime
 import uuid
-from utils import hash_password, is_valid_phone, is_valid_email, token_manager
+from utils import hash_password, is_valid_phone, is_valid_email, get_current_user, token_manager
 
 router = APIRouter()
 ### 사용자 관리 API ###
 
 # 특정 사용자 조회 <관리용> 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/dev/search/{user_id}", response_model=UserResponse) # 엔드포인트 우선순위 에러
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = get_user_by_id(db, user_id)
     if not user:
@@ -19,36 +19,13 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 # 사용자 정보 조회
 @router.get("/me", response_model=UserResponse)
-def get_user_me(authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-    
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user = get_user_by_id(db, user_id)
+def get_user_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return user
 
 
 ### 사용자 정보 수정 API ###
 @router.put("/me", response_model=UserResponse)
-def update_user_info(user_update: UserResponse, authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-    
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user = get_user_by_id(db, user_id)
-    
+def update_user_info(user_update: UserResponse, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # 업데이트할 정보가 있을 때만 수정
     # 무엇이 업데이트 되었는지 정보를 넘겨줄 필요가 있는지?
     # 넘겨줄 필요가 없다면 그냥 리턴만 해주면 됨
@@ -84,22 +61,8 @@ def update_user_info(user_update: UserResponse, authorization: str = Header(None
 # 이런 부분은 어떻게 구현할지 고민해보아야함
 # user id 말고 다른 정보로 삭제를 할 수 있어야하지 않을까?
 @router.delete("/me")
-def delete_user(authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    deleted_user = get_user_by_id(db, user_id)
-    if not deleted_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    db.delete(deleted_user)
+def delete_user(user: User = Depends(get_current_user), db: Session = Depends(get_db)):    
+    db.delete(user)
     db.commit()
     
     return {"message": "User deleted"}
@@ -116,18 +79,7 @@ def delete_user(authorization: str = Header(None), db: Session = Depends(get_db)
 ### 비밀번호 재설정 API ###
 
 @router.post("/me/password")
-def reset_password(new_password: str, authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user = get_user_by_id(db, user_id)
+def reset_password(new_password: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user.password_hash = hash_password(new_password)
     db.commit()
     db.refresh(user)
@@ -146,19 +98,7 @@ def reset_password(new_password: str, authorization: str = Header(None), db: Ses
 ### 경도와 위도 정보 업데이트 API ###
 
 @router.put("/me/location")
-def update_location(latitude: float, longitude: float, authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user = get_user_by_id(db, user_id)
-
+def update_location(latitude: float, longitude: float, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user.latitude = latitude
     user.longitude = longitude
     user.last_update_location = datetime.utcnow()
@@ -170,34 +110,11 @@ def update_location(latitude: float, longitude: float, authorization: str = Head
 ### 유저 프로필 API ###
 
 @router.get("/me/ai_profile")
-def get_user_ai_profile(authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user = get_user_by_id(db, user_id)
+def get_user_ai_profile(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return {"profile_number" : user.ai_profile}
 
 @router.put("/me/ai_profile")
-def change_user_ai_profile(image_num: int = 0, authorization: str = Header(None), db: Session = Depends(get_db)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-    user_id = payload.get("sub")
-
-    if not user_id:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    user = get_user_by_id(db, user_id)
-
+def change_user_ai_profile(image_num: int = 0, user: UserResponse = Depends(get_current_user), db: Session = Depends(get_db)):
     user.ai_profile = image_num
     db.commit()
     db.refresh(user)

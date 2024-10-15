@@ -5,6 +5,7 @@ from .utils import (
     is_valid_phone,
     is_valid_email,
 )
-from .token_manager import (
-    token_manager
+from .token import (
+    token_manager,
+    get_current_user
 )

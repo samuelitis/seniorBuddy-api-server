@@ -13,3 +13,4 @@ passlib
 python-jose
 mysql-connector-python
 pydantic[email]
+passlib[bcrypt]

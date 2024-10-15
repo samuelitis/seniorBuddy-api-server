@@ -7,8 +7,7 @@ from database import get_db
 from datetime import datetime, timedelta
 from jose import jwt, ExpiredSignatureError, JWTError
 from utils.config import variables
-from utils import token_manager
-
+from utils import token_manager, get_current_user
 import uuid
 
 
@@ -144,7 +143,7 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
     new_access_token = token_manager.create_access_token(user.user_id)
     new_refresh_token = token_manager.create_refresh_token(user.user_id)
 
-    token_manager.revoke_refresh_token(db, refresh_token)
+    token_manager.del_refresh_token(db, refresh_token)
     
     token_manager.store_refresh_token(db, new_refresh_token, user.user_id)
 
@@ -163,25 +162,12 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
 
 # 로그아웃
 @router.post("/logout")
-def logout(request: Request, db: Session = Depends(get_db)):
-    authorization = request.headers.get("Authorization")
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
-
-    token = authorization.split(" ")[1]
-    payload = token_manager.decode_token(token)
-
-    user_id = payload.get("sub")
-    user = db.query(User).filter(User.user_id == user_id).first()
-
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
+def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
     
     if not refresh_token:
         raise HTTPException(status_code=404, detail="Refresh token not found")
     
-    token_manager.revoke_refresh_token(db, refresh_token.token)
+    token_manager.del_refresh_token(db, refresh_token.token)
 
     return JSONResponse(content={"message": "Logged out successfully"})

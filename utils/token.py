@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
+from fastapi import Depends, HTTPException
+from fastapi.security import APIKeyHeader
 from jose import jwt, ExpiredSignatureError, JWTError
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from models import RefreshToken, User
+from models import RefreshToken
 from utils.config import variables
+from models import get_user_by_id
+from database import get_db
 
 # 헷갈려서 매니지먼트 클래스로 변경
 # 또한 토큰에 expire 날짜 정보도 포함하였음
@@ -91,3 +94,27 @@ class TokenManager:
 
 
 token_manager = TokenManager()
+authorization_scheme = APIKeyHeader(name="Authorization")
+
+def get_current_user(authorization: str = Depends(authorization_scheme), db: Session = Depends(get_db)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token missing")
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+    token = authorization.split(" ")[1]
+    
+    try:
+        payload = token_manager.decode_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = get_user_by_id(db, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return user
+
+    except Exception as e: # 임시 예외처리, 발생가능한 예외처리 추가 필요
+        raise HTTPException(status_code=401, detail=f"Exception occurred: {e}")
