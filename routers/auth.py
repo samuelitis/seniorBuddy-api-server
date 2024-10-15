@@ -126,10 +126,16 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
         access_payload = token_manager.decode_token(access_token)
         user_id = access_payload.get("sub")
     except ExpiredSignatureError:
-        user_id = None
+        access_payload = token_manager.decode_token_without_exp(access_token)  # 만료된 토큰이라도 페이로드를 확인
+        user_id = access_payload.get("sub")
 
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid access token")
+        # 보안적인 이유로 인해 더 많은 정보를 제공하지 않음
+        # 예외 추가 X
+        # 아래의 토큰 미일치도 안넣는게 좋을 수 있으나
+        # NextJS에서 필요할 수 있으므로 넣어둠
+
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:

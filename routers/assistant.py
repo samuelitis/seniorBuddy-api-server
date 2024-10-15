@@ -67,7 +67,7 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 async def get_threads_by_user(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     threads = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).all()
     if not threads:
-        raise HTTPException(status_code=404, detail="No threads found for this user")
+        threads = create_assistant_thread(user.user_id, db)
 
     return threads
 # 스레드 삭제
