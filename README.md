@@ -20,6 +20,10 @@
    ```
 3. **Docker 컨테이너 생성**
    ```bash
-   docker build -t [image] .
-   docker run -d -p 8000:8000 [image]
+   sudo docker build -t api-server .
+   sudo docker run -p 8000:8000 --name api-server -d -v $(pwd):/app \
+     --log-driver=json-file \
+     --log-opt max-size=10m \
+     --log-opt max-file=3 \
+     api-server
    ```
