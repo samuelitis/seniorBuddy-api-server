@@ -50,10 +50,10 @@ class TokenManager:
             return payload
         except ExpiredSignatureError:
             if refresh:
-                raise HTTPException(status_code=401, detail="Token expired")
-            else:
                 payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
                 return payload
+            else:
+                raise HTTPException(status_code=401, detail="Access Token has expired")
 
         except JWTError as e:
             raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
@@ -111,6 +111,9 @@ def get_current_user(authorization: str = Depends(authorization_scheme), db: Ses
     
     try:
         payload = token_manager.decode_token(token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=404, detail="User not found")
@@ -120,6 +123,8 @@ def get_current_user(authorization: str = Depends(authorization_scheme), db: Ses
             raise HTTPException(status_code=404, detail="User not found")
         
         return user
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Access Token has expired")        
 
     except Exception as e: # 임시 예외처리, 발생가능한 예외처리 추가 필요
         raise HTTPException(status_code=401, detail=f"Exception occurred: {e}")

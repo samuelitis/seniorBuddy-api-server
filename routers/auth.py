@@ -123,11 +123,11 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
         raise HTTPException(status_code=400, detail="Access or refresh token missing")
 
     try:
-        access_payload = token_manager.decode_token(access_token)
+        access_payload = token_manager.decode_token(access_token, refresh=True)
         user_id = access_payload.get("sub")
-    except ExpiredSignatureError: 
-        user_id = access_payload.get("sub")
-        pass
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Exception occurred : {e}")
+
 
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid access token")

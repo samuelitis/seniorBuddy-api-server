@@ -97,6 +97,10 @@ def reset_password(new_password: str, user: User = Depends(get_current_user), db
 
 ### 경도와 위도 정보 업데이트 API ###
 
+@router.get("/me/location")
+def get_location(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"latitude": user.latitude, "longitude": user.longitude}
+
 @router.put("/me/location")
 def update_location(latitude: float, longitude: float, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user.latitude = latitude
