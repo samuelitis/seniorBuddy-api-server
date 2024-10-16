@@ -125,9 +125,9 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
     try:
         access_payload = token_manager.decode_token(access_token)
         user_id = access_payload.get("sub")
-    except ExpiredSignatureError:
-        access_payload = token_manager.decode_token_without_exp(access_token)  # 만료된 토큰이라도 페이로드를 확인
+    except ExpiredSignatureError: 
         user_id = access_payload.get("sub")
+        pass
 
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid access token")

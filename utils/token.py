@@ -41,7 +41,7 @@ class TokenManager:
         """
         return self._create_token(user_id, timedelta(days=self.refresh_token_expiry_days))
 
-    def decode_token(self, token: str) -> dict:
+    def decode_token(self, token: str, refresh: bool=False) -> dict:
         """
         토큰 검증 및 디코딩
         """
@@ -49,7 +49,12 @@ class TokenManager:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return payload
         except ExpiredSignatureError:
-            raise HTTPException(status_code=401, detail="Token expired")
+            if refresh:
+                raise HTTPException(status_code=401, detail="Token expired")
+            else:
+                payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
+                return payload
+
         except JWTError as e:
             raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
