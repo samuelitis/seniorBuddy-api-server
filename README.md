@@ -6,7 +6,7 @@
    cd seniorBuddy-api-server
    ```
 2. `config.py` **파일생성**  
-  프로젝트 루프 디렉토리에 `.env`파일을 생성하고 환경변수를 등록합니다.
+   `./utils/config.py` 파일을 생성하고 아래 변수를 작성합니다.
    ```python
    class Config:
       OPENAI_API_KEY="openai에서 발급받은 api key"
