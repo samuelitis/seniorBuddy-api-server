@@ -14,7 +14,7 @@ router = APIRouter()
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = get_user_by_id(db, user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found", headers={"X-Error": "User not found"})
     return user
 
 # 사용자 정보 조회
@@ -36,12 +36,12 @@ def update_user_info(user_update: UserResponse, user: User = Depends(get_current
         if is_valid_phone(user_update.phone_number):
             user.phone_number = user_update.phone_number
         else:
-            raise HTTPException(status_code=400, detail="Invalid phone number")
+            raise HTTPException(status_code=400, detail="Invalid phone number", headers={"X-Error": "Invalid phone number"})
     if user_update.email is not None or user_update.email == "":
         if is_valid_email(user_update.email):
             user.email = user_update.email
         else:
-            raise HTTPException(status_code=400, detail="Invalid email")
+            raise HTTPException(status_code=400, detail="Invalid email", headers={"X-Error": "Invalid email"})
          
     
     db.commit()

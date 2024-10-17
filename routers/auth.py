@@ -30,21 +30,21 @@ router = APIRouter()
 def register(user: UserCreate, db: Session = Depends(get_db)):
     # 이메일 및 전화번호 형식 확인
     if user.email is not None and not is_valid_email(user.email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format", headers={"X-Error": "Invalid email format"})
     if not is_valid_phone(user.phone_number):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number format")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number format", headers={"X-Error": "Invalid phone number format"})
     
     existing_user = db.query(User).filter(User.phone_number == user.phone_number).first()
     if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered", headers={"X-Error": "Phone number already registered"})
 
     if user.email:
         existing_email_user = db.query(User).filter(User.email == user.email).first()
         if existing_email_user:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered", headers={"X-Error": "Email already registered"})
 
     if not validate_password_strength(user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password strength")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password strength", headers={"X-Error": "Invalid password strength"})
     
     hashed_password = hash_password(user.password)
 
@@ -97,9 +97,9 @@ def login(data: LoginData, db: Session = Depends(get_db)):
         user = db.query(User).filter(User.phone_number == data.identifier).first()
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found", headers={"X-Error": "User not found"})
     if not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Incorrect password")
+        raise HTTPException(status_code=401, detail="Incorrect password", headers={"X-Error": "Incorrect password"})
 
     # 기존 리프레시 토큰 무효화
     existing_refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
@@ -120,17 +120,17 @@ def login(data: LoginData, db: Session = Depends(get_db)):
 @router.post("/refresh")
 def refresh(access_token: str = Header(None), refresh_token: str = Header(None), db: Session = Depends(get_db)):
     if not access_token or not refresh_token:
-        raise HTTPException(status_code=400, detail="Access or refresh token missing")
+        raise HTTPException(status_code=400, detail="Access or refresh token missing", headers={"X-Error": "Access or refresh token missing"})
 
     try:
         access_payload = token_manager.decode_token(access_token, refresh=True)
         user_id = access_payload.get("sub")
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Exception occurred : {e}")
+        raise HTTPException(status_code=401, detail=f"Exception occurred : {e}", headers={"X-Error": f"Exception occurred : {e}"})
 
 
     if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid access token")
+        raise HTTPException(status_code=401, detail="Invalid access token", headers={"X-Error": "Invalid access token"})
         # 보안적인 이유로 인해 더 많은 정보를 제공하지 않음
         # 예외 추가 X
         # 아래의 토큰 미일치도 안넣는게 좋을 수 있으나
@@ -139,12 +139,12 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found", headers={"X-Error": "User not found"})
 
     valid_refresh_token = token_manager.get_valid_refresh_token(db, refresh_token)
     
     if valid_refresh_token.user_id != user.user_id:
-        raise HTTPException(status_code=401, detail="Refresh token does not match user")
+        raise HTTPException(status_code=401, detail="Refresh token does not match user", headers={"X-Error": "Refresh token does not match user"})
 
     new_access_token = token_manager.create_access_token(user.user_id)
     new_refresh_token = token_manager.create_refresh_token(user.user_id)
@@ -172,7 +172,7 @@ def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)
     refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
     
     if not refresh_token:
-        raise HTTPException(status_code=404, detail="Refresh token not found")
+        raise HTTPException(status_code=404, detail="Refresh token not found", headers={"X-Error": "Refresh token not found"})
     
     token_manager.del_refresh_token(db, refresh_token.token)
 

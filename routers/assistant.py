@@ -88,7 +88,7 @@ async def get_threads_by_user(request: Request, user: User = Depends(get_current
 async def delete_assistant_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise HTTPException(status_code=404, detail="Thread not found", headers={"X-Error": "Thread not found"})
     
     db.delete(thread)
     db.commit()
@@ -113,7 +113,7 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
     latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(AssistantMessage.created_at.desc()).first()
 
     if latest_message and latest_message.status_type in running_states:
-        raise HTTPException(status_code=400, detail="A message is already in progress")
+        raise HTTPException(status_code=400, detail="A message is already in progress", headers={"X-Error": "A message is already in progress"})
 
     response = client.beta.threads.messages.create(
         thread_id=thread.thread_id,
@@ -143,9 +143,9 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
             timeout=60.0  # 60초 이내에 응답을 받아야 함
         )
     except TimeoutError:
-        raise HTTPException(status_code=504, detail="Stream processing timeout")
+        raise HTTPException(status_code=504, detail="Stream processing timeout", headers={"X-Error": "Stream processing timeout"})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Stream execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Stream execution failed: {str(e)}", headers={"X-Error": f"Stream execution failed: {str(e)}"})
 
     return {"status": "Message created and executed", "message": new_message.content}
 
@@ -154,11 +154,11 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
 async def get_messages_by_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise HTTPException(status_code=404, detail="Thread not found", headers={"X-Error": "Thread not found"})
 
     messages = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).all()
     if not messages:
-        raise HTTPException(status_code=404, detail="No messages found for this thread")
+        raise HTTPException(status_code=404, detail="No messages found for this thread", headers={"X-Error": "No messages found for this thread"})
     
     return messages
 

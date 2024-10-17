@@ -53,10 +53,10 @@ class TokenManager:
                 payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
                 return payload
             else:
-                raise HTTPException(status_code=401, detail="Access Token has expired")
+                raise HTTPException(status_code=401, detail="Access Token has expired", headers={"X-Error": "Access Token has expired"})
 
         except JWTError as e:
-            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}", headers={"X-Error": f"Invalid token: {str(e)}"})
 
     def store_refresh_token(self, db: Session, token: str, user_id: int, expires_at: datetime = None):
         """
@@ -103,28 +103,28 @@ authorization_scheme = APIKeyHeader(name="Authorization")
 
 def get_current_user(authorization: str = Depends(authorization_scheme), db: Session = Depends(get_db)):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
+        raise HTTPException(status_code=401, detail="Authorization token missing", headers={"X-Error": "Authorization token missing"})
     if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
+        raise HTTPException(status_code=401, detail="Invalid authorization header", headers={"X-Error": "Invalid authorization header"})
 
     token = authorization.split(" ")[1]
     
     try:
         payload = token_manager.decode_token(token)
         if not payload:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token", headers={"X-Error": "Invalid token"})
 
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="User not found", headers={"X-Error": "User not found"})
         
         user = get_user_by_id(db, user_id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="User not found", headers={"X-Error": "User not found"})
         
         return user
     except ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Access Token has expired")        
+        raise HTTPException(status_code=401, detail="Access Token has expired", headers={"X-Error": "Access Token has expired"})
 
     except Exception as e: # 임시 예외처리, 발생가능한 예외처리 추가 필요
-        raise HTTPException(status_code=401, detail=f"Exception occurred: {e}")
+        raise HTTPException(status_code=401, detail=f"Exception occurred: {e}", headers={"X-Error": f"Exception occurred: {e}"})
