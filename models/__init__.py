@@ -1,5 +1,4 @@
 from .models import (
-    UserType,
     SenderType,
     User,
     AssistantThread,
