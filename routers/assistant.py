@@ -1,16 +1,18 @@
 import os, json
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from sqlalchemy.orm import Session
-from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage, User
-from database import get_db
 from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, BackgroundTasks
+from sqlalchemy.orm import Session
+from asyncio import TimeoutError, wait_for
 from openai import AsyncAssistantEventHandler, AsyncOpenAI, AssistantEventHandler, OpenAI
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
+
+from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage, User
+from database import get_db
 from functions import getUltraSrtFcst
 from utils.config import variables
 from utils import token_manager, get_current_user
@@ -31,6 +33,19 @@ client = OpenAI(api_key=openai_api_key)
 
 def override(method: Any) -> Any:
     return method
+
+def process_message_in_background(thread_id: str, message_id: str, db: Session):
+    try:
+        # 비동기 스트리밍 작업 처리
+        with client.beta.threads.runs.stream(
+            thread_id=thread_id,
+            instructions=__INSTRUCTIONS__,
+            event_handler=EventHandler(db, thread_id, message_id),
+        ) as stream:
+            stream.until_done()  # 비동기 작업 처리
+    except Exception as e:
+        print(f"Error in background task: {str(e)}")
+
 ### 스레드 관리 API ###
 #
 #    ooooooooooooo oooo                                           .o8 
@@ -49,9 +64,7 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     assistant_thread = AssistantThread(
         user_id=user_id,
         thread_id=thread.id,
-        created_at=datetime.utcnow(),
-        run_state="created",
-        run_id=thread.run_id
+        run_state="created"
     )
     
     db.add(assistant_thread)
@@ -67,7 +80,7 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
 async def get_threads_by_user(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     threads = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).all()
     if not threads:
-        threads = create_assistant_thread(user.user_id, db)
+        threads = await create_assistant_thread(user.user_id, db)
 
     return threads
 # 스레드 삭제
@@ -90,14 +103,13 @@ async def delete_assistant_thread(request: Request, user: User = Depends(get_cur
 #    o8o        o888o `Y8bod8P' 8""888P' 8""888P' `Y888""8o `8oooooo.  `Y8bod8P'
 #                                                           d"     YD           
 #                                                           "Y88888P'           
-# user id 말고 엑세스토큰으로 찾아야하지 않을까?
 @router.post("/message", response_model=AssistantMessageCreate)
 async def add_and_run_message(request: Request, message: AssistantMessageCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
         thread = create_assistant_thread(user.user_id, db)
 
-    running_states = ["running", "processing", "waiting"]
+    running_states = ["run"]
     latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(AssistantMessage.created_at.desc()).first()
 
     if latest_message and latest_message.status_type in running_states:
@@ -112,7 +124,7 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
     new_message = AssistantMessage(
         thread_id=thread.thread_id,
         sender_type="user",
-        status_type="sent",
+        status_type="init",
         content=message.content,
         created_at=datetime.utcnow()
     )
@@ -121,12 +133,19 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
     db.commit()
     db.refresh(new_message)
 
-    async with client.beta.threads.runs.stream(
-        thread_id=thread.thread_id,
-        instructions=__INSTRUCTIONS__,
-        event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
-    ) as stream:
-        stream.until_done()
+    try:
+        await wait_for(
+            client.beta.threads.runs.stream(
+                thread_id=thread.thread_id,
+                instructions=__INSTRUCTIONS__,
+                event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
+            ).until_done(),
+            timeout=60.0  # 60초 이내에 응답을 받아야 함
+        )
+    except TimeoutError:
+        raise HTTPException(status_code=504, detail="Stream processing timeout")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stream execution failed: {str(e)}")
 
     return {"status": "Message created and executed", "message": new_message.content}
 
@@ -160,18 +179,19 @@ class EventHandler(AssistantEventHandler):
         self.thread_id = thread_id
         self.message_id = message_id
         self.current_run = None
+        self.status = "initializing"
 
-    def update_message_status(self):
+    def update_message_status(self, status: str):
         message = self.db.query(AssistantMessage).filter(AssistantMessage.message_id == self.message_id).first()
         if message:
-            message.status = self.status
+            message.status = status
             self.db.commit()
-            print(f"Message {self.message_id} status updated to {self.status}")
+            print(f"Message {self.message_id} status updated to {status}")
 
     def on_event(self, event: Any) -> None:
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
-            self.update_message_status()
+            self.update_message_status("requires_action")
             self.handle_requires_action(event.data, run_id)
 
     @override

@@ -7,13 +7,6 @@ from database import Base
 from datetime import time, datetime
 from enum import Enum
 
-# 사용자 유형 Enum 정의
-class UserType(str, Enum):
-    senior = 'senior'
-    guardian = 'guardian'
-    external_company = 'external_company'
-    admin = 'admin'
-
 # 메시지 전송자 유형 Enum 정의
 class SenderType(str, Enum):
     user = 'user'
@@ -28,7 +21,7 @@ class User(Base):
     user_real_name = Column(String(100), nullable=False)
     user_uuid = Column(String(36), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    user_type = Column(SQLAEnum(UserType), nullable=False)
+    user_type = Column(String(16), nullable=False)
     phone_number = Column(String(20), nullable=False)
     email = Column(String(100), unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -40,27 +33,27 @@ class User(Base):
 
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
 
+
 # AssistantThreads 테이블 모델 정의
 class AssistantThread(Base):
     __tablename__ = "assistant_threads"
 
     thread_id = Column(String(36), primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.user_id'), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.user_id', ondelete="CASCADE"), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    run_state = Column(String(50), nullable=False)
+    run_state = Column(String(50), nullable=True)
     run_id = Column(String(100), nullable=True)
 
     user = relationship("User", back_populates="thread")
-    message = relationship("AssistantMessage", back_populates="thread", uselist=False)
+    message = relationship("AssistantMessage", back_populates="thread", uselist=True)
 
 # AssistantMessages 테이블 모델 정의
 class AssistantMessage(Base):
     __tablename__ = "assistant_messages"
 
     message_id = Column(String(36), primary_key=True, index=True)
-    thread_id = Column(String(36), ForeignKey('assistant_threads.thread_id'), unique=True, nullable=False)
+    thread_id = Column(String(36), ForeignKey('assistant_threads.thread_id', ondelete="SET NULL"), nullable=True)
     sender_type = Column(SQLAEnum(SenderType), nullable=False)
-    status_type = Column(TEXT, nullable=False)
     content = Column(TEXT, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -81,7 +74,7 @@ class RefreshToken(Base):
 class UserCreate(BaseModel):
     user_real_name: str
     password: str
-    user_type: UserType
+    user_type: str
     phone_number: str
     email: Optional[EmailStr] = None
 
@@ -90,23 +83,22 @@ class UserCreate(BaseModel):
 
 # 스레드 생성/조회 스키마
 class AssistantThreadCreate(BaseModel):
-    run_state: str
-    run_id: str
+    run_state: Optional[str] = None
+    run_id: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 # 메시지 생성/조회 스키마
 class AssistantMessageCreate(BaseModel):
-    sender_type: str
+    sender_type: SenderType
     content: str
-
     class Config:
         from_attributes = True
 
 class UserResponse(BaseModel):
     user_real_name: str
-    user_type: UserType
+    user_type: str
     phone_number: str
     email: Optional[EmailStr] = None
 
