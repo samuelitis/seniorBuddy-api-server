@@ -5,7 +5,6 @@ from .models import (
     AssistantThread,
     AssistantMessage,
     RefreshToken,
-    UserType, 
     UserCreate, 
     AssistantThreadCreate, 
     AssistantMessageCreate,
