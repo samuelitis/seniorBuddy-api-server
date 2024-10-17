@@ -184,9 +184,9 @@ class EventHandler(AssistantEventHandler):
     def update_message_status(self, status: str):
         message = self.db.query(AssistantMessage).filter(AssistantMessage.message_id == self.message_id).first()
         if message:
-            message.status = status
+            self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": status})
             self.db.commit()
-            print(f"Message {self.message_id} status updated to {status}")
+            print(f"Thread {self.thread_id} status updated to {status}")
 
     def on_event(self, event: Any) -> None:
         if event.event == 'thread.run.requires_action':
@@ -220,10 +220,10 @@ class EventHandler(AssistantEventHandler):
             elif not isinstance(result, str):
                 result = str(result)    
             tool_outputs.append({"tool_call_id" : tool.id, "output": result})
-        self.submit_tool_outputs(tool_outputs)
+        self.submit_tool_outputs(tool_outputs, run_id)
 
     @override
-    def submit_tool_outputs(self, tool_outputs):
+    def submit_tool_outputs(self, tool_outputs, run_id):
         with client.beta.threads.runs.submit_tool_outputs_stream(
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
@@ -236,4 +236,9 @@ class EventHandler(AssistantEventHandler):
 
     @override
     def on_message_done(self, message: Message) -> None:
-        print(message.content[0].text.value)
+        self.db.query(AssistantMessage).filter(AssistantMessage.message_id == self.message_id).update({"status_type": "done"})
+        self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": "done"})
+        self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"content": message})
+        self.db.commit()
+        print(f"Message {self.message_id} processing done")
+        print(f"Thread {self.thread_id} status updated to done")
