@@ -55,7 +55,7 @@ def process_message_in_background(thread_id: str, message_id: str, db: Session):
 #         888       888   888   888     888ooo888  .oP"888  888   888 
 #         888       888   888   888     888    .o d8(  888  888   888 
 #        o888o     o888o o888o d888b    `Y8bod8P' `Y888""8o `Y8bod88P"
-# run state : created, running, processing, waiting, done
+# run state : creating, created, run, intrupted, done
 
 # 스레드 생성
 async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
@@ -64,7 +64,7 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     assistant_thread = AssistantThread(
         user_id=user_id,
         thread_id=thread.id,
-        run_state="created"
+        run_state="creating"
     )
     
     db.add(assistant_thread)
@@ -108,11 +108,10 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
         thread = create_assistant_thread(user.user_id, db)
-
-    running_states = ["run"]
-    latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(AssistantMessage.created_at.desc()).first()
-
-    if latest_message and latest_message.status_type in running_states:
+    
+    running_states = ["created", "intrupted", "done"]
+    latest_status = db.query(AssistantThread).filter(AssistantThread.thread_id == thread.thread_id).first().run_state
+    if latest_status in running_states:
         raise HTTPException(status_code=400, detail="A message is already in progress", headers={"X-Error": "A message is already in progress"})
 
     response = client.beta.threads.messages.create(
@@ -124,7 +123,6 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
     new_message = AssistantMessage(
         thread_id=thread.thread_id,
         sender_type="user",
-        status_type="init",
         content=message.content,
         created_at=datetime.utcnow()
     )

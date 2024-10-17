@@ -52,14 +52,10 @@ app = FastAPI(
 
 # CORS (Cross Origin Resource Sharing, 교차 출처 리소스 공유) 설정
 # 
-origins = [
-    "http://localhost:8000",
-    "http://localhost:3000",
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=variables.ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
