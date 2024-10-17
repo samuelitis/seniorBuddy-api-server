@@ -236,7 +236,6 @@ class EventHandler(AssistantEventHandler):
 
     @override
     def on_message_done(self, message: Message) -> None:
-        self.db.query(AssistantMessage).filter(AssistantMessage.message_id == self.message_id).update({"status_type": "done"})
         self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": "done"})
         self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"content": message})
         self.db.commit()

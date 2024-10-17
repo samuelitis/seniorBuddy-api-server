@@ -1,5 +1,5 @@
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 from fastapi.middleware import Middleware
 import re
 
@@ -15,11 +15,11 @@ def is_valid_injection(input: str) -> bool:
 async def sql_injection_middleware(request: Request, call_next):
     for key, value in request.query_params.items():
         if not is_valid_injection(value):
-            return Response(f"SQL Injection detected in query parameter: {key}", status_code=400)
+            raise HTTPException(status_code=400, detail="SQL Injection detected in query parameter")
     
     for key, value in request.path_params.items():
         if not is_valid_injection(value):
-            return Response(f"SQL Injection detected in path parameter: {key}", status_code=400)
+            raise HTTPException(status_code=400, detail="SQL Injection detected in path parameter")
     
     response = await call_next(request)
     return response
