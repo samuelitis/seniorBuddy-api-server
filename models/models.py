@@ -53,7 +53,7 @@ class AssistantMessage(Base):
 
     message_id = Column(String(36), primary_key=True, index=True)
     thread_id = Column(String(36), ForeignKey('assistant_threads.thread_id', ondelete="SET NULL"), nullable=True)
-    sender_type = Column(SQLAEnum(SenderType), nullable=False)
+    sender_type = Column(String(18), nullable=False)
     content = Column(TEXT, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

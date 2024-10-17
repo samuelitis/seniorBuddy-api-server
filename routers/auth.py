@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse, get_user_by_id
 from utils import verify_password, is_valid_phone, is_valid_email, validate_password_strength, hash_password
 from database import get_db
@@ -28,53 +29,63 @@ router = APIRouter()
 # 사용자 생성 API
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    # 이메일 및 전화번호 형식 확인
-    if user.email is not None and not is_valid_email(user.email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format", headers={"X-Error": "Invalid email format"})
-    if not is_valid_phone(user.phone_number):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number format", headers={"X-Error": "Invalid phone number format"})
+    try:
+        # 이메일 및 전화번호 형식 확인
+        if user.email is not None and not is_valid_email(user.email):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format", headers={"X-Error": "Invalid email format"})
+        if not is_valid_phone(user.phone_number):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number format", headers={"X-Error": "Invalid phone number format"})
+        
+        existing_user = db.query(User).filter(User.phone_number == user.phone_number).first()
+        if existing_user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered", headers={"X-Error": "Phone number already registered"})
+
+        if user.email:
+            existing_email_user = db.query(User).filter(User.email == user.email).first()
+            if existing_email_user:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered", headers={"X-Error": "Email already registered"})
+
+        if not validate_password_strength(user.password):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password strength", headers={"X-Error": "Invalid password strength"})
+        
+        hashed_password = hash_password(user.password)
+
+        new_user = User(
+            user_uuid=str(uuid.uuid4()),
+            user_real_name=user.user_real_name,
+            password_hash=hashed_password,
+            phone_number=user.phone_number,
+            user_type=user.user_type,
+            email=user.email,
+            created_at=datetime.utcnow(),
+        )
+        
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+        access_token = token_manager.create_access_token(new_user.user_id)
+        refresh_token = token_manager.create_refresh_token(new_user.user_id)
+
+        token_manager.store_refresh_token(db, refresh_token, new_user.user_id)
+
+        return RegisterResponse(
+            user_real_name=new_user.user_real_name,
+            user_type=new_user.user_type,
+            phone_number=new_user.phone_number,
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+    except HTTPException as e:
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"User register failed: {str(e)}", headers={"X-Error": f"User register failed: {str(e)}"})
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
     
-    existing_user = db.query(User).filter(User.phone_number == user.phone_number).first()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered", headers={"X-Error": "Phone number already registered"})
-
-    if user.email:
-        existing_email_user = db.query(User).filter(User.email == user.email).first()
-        if existing_email_user:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered", headers={"X-Error": "Email already registered"})
-
-    if not validate_password_strength(user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password strength", headers={"X-Error": "Invalid password strength"})
-    
-    hashed_password = hash_password(user.password)
-
-    new_user = User(
-        user_uuid=str(uuid.uuid4()),
-        user_real_name=user.user_real_name,
-        password_hash=hashed_password,
-        phone_number=user.phone_number,
-        user_type=user.user_type,
-        email=user.email,
-        created_at=datetime.utcnow(),
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    access_token = token_manager.create_access_token(new_user.user_id)
-    refresh_token = token_manager.create_refresh_token(new_user.user_id)
-
-    token_manager.store_refresh_token(db, refresh_token, new_user.user_id)
-
-    return RegisterResponse(
-        user_real_name=new_user.user_real_name,
-        user_type=new_user.user_type,
-        phone_number=new_user.phone_number,
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
-
 #    
 #     .oooooo..o  o8o                               o8o             
 #     d8P'    `Y8  `"'                               `"'             
@@ -105,7 +116,7 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     existing_refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
     if existing_refresh_token:
         return TokenResponse(access_token=token_manager.create_access_token(user.user_id),
-                             refresh_token=existing_refresh_token.token)
+                            refresh_token=existing_refresh_token.token)
 
     # 새로운 액세스 토큰 및 리프레시 토큰 발급
     access_token = token_manager.create_access_token(user.user_id)
@@ -116,7 +127,6 @@ def login(data: LoginData, db: Session = Depends(get_db)):
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
-
 @router.post("/refresh")
 def refresh(access_token: str = Header(None), refresh_token: str = Header(None), db: Session = Depends(get_db)):
     if not access_token or not refresh_token:
@@ -126,7 +136,7 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
         access_payload = token_manager.decode_token(access_token, refresh=True)
         user_id = access_payload.get("sub")
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Exception occurred : {e}", headers={"X-Error": f"Exception occurred : {e}"})
+        raise HTTPException(status_code=401, detail="Invalid access token", headers={"X-Error": "Invalid access token"})
 
 
     if not user_id:

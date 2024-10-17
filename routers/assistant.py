@@ -3,6 +3,7 @@ from typing import Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from asyncio import TimeoutError, wait_for
 from openai import AsyncAssistantEventHandler, AsyncOpenAI, AssistantEventHandler, OpenAI
 from openai.types.beta.threads import Text, TextDelta
@@ -59,19 +60,27 @@ def process_message_in_background(thread_id: str, message_id: str, db: Session):
 
 # 스레드 생성
 async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
-    thread = client.beta.threads.create()
+    try:
+        thread = client.beta.threads.create()
+        
+        assistant_thread = AssistantThread(
+            user_id=user_id,
+            thread_id=thread.id,
+            run_state="creating"
+        )
+        
+        db.add(assistant_thread)
+        db.commit()
+        db.refresh(assistant_thread)
+        
+        return assistant_thread
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Thread creation failed: {str(e)}", headers={"X-Error": f"Thread creation failed: {str(e)}"})
+    except Exception as e:
+        db.rollback()
+        raise e
     
-    assistant_thread = AssistantThread(
-        user_id=user_id,
-        thread_id=thread.id,
-        run_state="creating"
-    )
-    
-    db.add(assistant_thread)
-    db.commit()
-    db.refresh(assistant_thread)
-    
-    return assistant_thread
 
 # 특정 사용자의 스레드 조회
 # id 말고 엑세스토큰으로 찾아야하지 않을까?
@@ -86,14 +95,17 @@ async def get_threads_by_user(request: Request, user: User = Depends(get_current
 # 스레드 삭제
 @router.delete("/threads")
 async def delete_assistant_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
-    if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found", headers={"X-Error": "Thread not found"})
-    
-    db.delete(thread)
-    db.commit()
-    return {"message": "Thread deleted successfully"}
-
+    try:
+        thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
+        if not thread:
+            raise HTTPException(status_code=404, detail="Thread not found", headers={"X-Error": "Thread not found"})
+        
+        db.delete(thread)
+        db.commit()
+        return {"message": "Thread deleted successfully"}
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Thread deletion failed: {str(e)}", headers={"X-Error": f"Thread deletion failed: {str(e)}"})
 #    ooo        ooooo                                                           
 #    `88.       .888'                                                           
 #     888b     d'888   .ooooo.   .oooo.o  .oooo.o  .oooo.    .oooooooo  .ooooo. 
@@ -105,46 +117,48 @@ async def delete_assistant_thread(request: Request, user: User = Depends(get_cur
 #                                                           "Y88888P'           
 @router.post("/message", response_model=AssistantMessageCreate)
 async def add_and_run_message(request: Request, message: AssistantMessageCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
-    if not thread:
-        thread = create_assistant_thread(user.user_id, db)
-    
-    running_states = ["created", "intrupted", "done"]
-    latest_status = db.query(AssistantThread).filter(AssistantThread.thread_id == thread.thread_id).first().run_state
-    if latest_status in running_states:
-        raise HTTPException(status_code=400, detail="A message is already in progress", headers={"X-Error": "A message is already in progress"})
-
-    response = client.beta.threads.messages.create(
-        thread_id=thread.thread_id,
-        role="user",
-        content=message.content
-    )
-
-    new_message = AssistantMessage(
-        thread_id=thread.thread_id,
-        sender_type="user",
-        content=message.content,
-        created_at=datetime.utcnow()
-    )
-    
-    db.add(new_message)
-    db.commit()
-    db.refresh(new_message)
-
     try:
+        thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
+        if not thread:
+            thread = create_assistant_thread(user.user_id, db)
+        
+        running_states = ["created", "intrupted", "done"]
+        latest_status = db.query(AssistantThread).filter(AssistantThread.thread_id == thread.thread_id).first().run_state
+        if latest_status in running_states:
+            raise HTTPException(status_code=400, detail="A message is already in progress", headers={"X-Error": "A message is already in progress"})
+
+        response = client.beta.threads.messages.create(
+            thread_id=thread.thread_id,
+            role="user",
+            content=message.content
+        )
+
+        new_message = AssistantMessage(
+            thread_id=thread.thread_id,
+            sender_type="user",
+            content=message.content,
+            created_at=datetime.utcnow()
+        )
+        db.add(new_message)
+        db.commit()
+        db.refresh(new_message)
+
         await wait_for(
             client.beta.threads.runs.stream(
-                thread_id=thread.thread_id,
-                instructions=__INSTRUCTIONS__,
-                event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
-            ).until_done(),
+            thread_id=thread.thread_id,
+            instructions=__INSTRUCTIONS__,
+            event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
+        ).until_done(),
             timeout=60.0  # 60초 이내에 응답을 받아야 함
         )
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Message creation failed: {str(e)}", headers={"X-Error": f"Message creation failed: {str(e)}"})
     except TimeoutError:
-        raise HTTPException(status_code=504, detail="Stream processing timeout", headers={"X-Error": "Stream processing timeout"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Stream execution failed: {str(e)}", headers={"X-Error": f"Stream execution failed: {str(e)}"})
-
+        raise HTTPException(status_code=500, detail="Stream execution timed out", headers={"X-Error": "Stream execution timed out"})
+    except Exception as e: # 예외 수정 필요
+        db.rollback()
+        raise e
     return {"status": "Message created and executed", "message": new_message.content}
 
 # 특정 스레드의 메시지 조회
