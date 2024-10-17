@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from models import RefreshToken, User, UserType, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse, get_user_by_id
+from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse, get_user_by_id
 from utils import verify_password, is_valid_phone, is_valid_email, validate_password_strength, hash_password
 from database import get_db
 from datetime import datetime, timedelta
