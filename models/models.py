@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, TEXT
 from sqlalchemy import Enum as SQLAEnum
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 from database import Base
 from datetime import time, datetime
@@ -76,7 +76,7 @@ class UserCreate(BaseModel):
     password: str
     user_type: str
     phone_number: str
-    email: Optional[EmailStr] = None
+    email: str = None
 
     class Config:
         from_attributes = True
@@ -100,7 +100,7 @@ class UserResponse(BaseModel):
     user_real_name: str
     user_type: str
     phone_number: str
-    email: Optional[EmailStr] = None
+    email: str = None
 
     class Config:
         from_attributes = True
