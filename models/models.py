@@ -50,8 +50,8 @@ class AssistantThread(Base):
 # AssistantMessages 테이블 모델 정의
 class AssistantMessage(Base):
     __tablename__ = "assistant_messages"
-
-    message_id = Column(String(36), primary_key=True, index=True)
+    
+    message_id = Column(Integer, primary_key=True, index=True)
     thread_id = Column(String(36), ForeignKey('assistant_threads.thread_id', ondelete="SET NULL"), nullable=True)
     sender_type = Column(String(18), nullable=False)
     content = Column(TEXT, nullable=False)

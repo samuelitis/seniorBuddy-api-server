@@ -21,8 +21,9 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from fastapi import FastAPI
-
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from base64 import b64encode
 # 환경변수 호출
 assistant_id = variables.OPENAI_ASSISTANT_ID
 weather_key = variables.WEATHER_KEY
@@ -80,6 +81,14 @@ app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(medication.router, prefix="/medication", tags=["Medication"])
 app.include_router(reminder.router, prefix="/reminer", tags=["Reminer"])
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={"X-Error": "Error Detail"}
+    )
 
 # if __name__ == "__main__":
 #     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

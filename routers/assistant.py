@@ -2,6 +2,7 @@ import os, json
 from typing import Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, BackgroundTasks
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from asyncio import TimeoutError, wait_for
@@ -11,6 +12,7 @@ from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 from openai.types.beta.threads import Message, MessageDelta
 from openai.types.beta.threads.runs import ToolCall, RunStep
 from openai.types.beta import AssistantStreamEvent
+from openai import OpenAIError
 
 from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage, User
 from database import get_db
@@ -35,18 +37,6 @@ client = OpenAI(api_key=openai_api_key)
 def override(method: Any) -> Any:
     return method
 
-def process_message_in_background(thread_id: str, message_id: str, db: Session):
-    try:
-        # 비동기 스트리밍 작업 처리
-        with client.beta.threads.runs.stream(
-            thread_id=thread_id,
-            instructions=__INSTRUCTIONS__,
-            event_handler=EventHandler(db, thread_id, message_id),
-        ) as stream:
-            stream.until_done()  # 비동기 작업 처리
-    except Exception as e:
-        print(f"Error in background task: {str(e)}")
-
 ### 스레드 관리 API ###
 #
 #    ooooooooooooo oooo                                           .o8 
@@ -56,7 +46,7 @@ def process_message_in_background(thread_id: str, message_id: str, db: Session):
 #         888       888   888   888     888ooo888  .oP"888  888   888 
 #         888       888   888   888     888    .o d8(  888  888   888 
 #        o888o     o888o o888o d888b    `Y8bod8P' `Y888""8o `Y8bod88P"
-# run state : creating, created, run, intrupted, done
+# run state : creating, created, run, interrupt, done
 
 # 스레드 생성
 async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
@@ -65,8 +55,7 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
         
         assistant_thread = AssistantThread(
             user_id=user_id,
-            thread_id=thread.id,
-            run_state="creating"
+            thread_id=thread.id
         )
         
         db.add(assistant_thread)
@@ -76,7 +65,7 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
         return assistant_thread
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Thread creation failed: {str(e)}", headers={"X-Error": f"Thread creation failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"Thread creation failed: {str(e)}")
     except Exception as e:
         db.rollback()
         raise e
@@ -98,14 +87,14 @@ async def delete_assistant_thread(request: Request, user: User = Depends(get_cur
     try:
         thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
         if not thread:
-            raise HTTPException(status_code=404, detail="Thread not found", headers={"X-Error": "Thread not found"})
+            raise HTTPException(status_code=404, detail="Thread not found")
         
         db.delete(thread)
         db.commit()
         return {"message": "Thread deleted successfully"}
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Thread deletion failed: {str(e)}", headers={"X-Error": f"Thread deletion failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"Thread deletion failed: {str(e)}")
 #    ooo        ooooo                                                           
 #    `88.       .888'                                                           
 #     888b     d'888   .ooooo.   .oooo.o  .oooo.o  .oooo.    .oooooooo  .ooooo. 
@@ -115,23 +104,40 @@ async def delete_assistant_thread(request: Request, user: User = Depends(get_cur
 #    o8o        o888o `Y8bod8P' 8""888P' 8""888P' `Y888""8o `8oooooo.  `Y8bod8P'
 #                                                           d"     YD           
 #                                                           "Y88888P'           
-@router.post("/message", response_model=AssistantMessageCreate)
+@router.get("/exception-test")
+async def exception_test(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        raise HTTPException(status_code=500, detail="한글 인코딩 테스트")
+    except Exception as e:
+        raise e
+@router.post("/message")
 async def add_and_run_message(request: Request, message: AssistantMessageCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
         thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
         if not thread:
-            thread = create_assistant_thread(user.user_id, db)
-        
-        running_states = ["created", "intrupted", "done"]
-        latest_status = db.query(AssistantThread).filter(AssistantThread.thread_id == thread.thread_id).first().run_state
-        if latest_status in running_states:
-            raise HTTPException(status_code=400, detail="A message is already in progress", headers={"X-Error": "A message is already in progress"})
+            thread = await create_assistant_thread(user.user_id, db)
+        try:
+            if thread.run_state is not None or thread.run_state in ["thread.run.completed", "thread.run.cancelled"]: # completed, cancelled 상태를 분리해야할 필요가 있는지 확인해봐야함.
+                response = client.beta.threads.messages.create(
+                    thread_id=thread.thread_id,
+                    role="user",
+                    content=message.content
+                )
+            elif thread.run_state in ["thread.run.failed"]: # 쓰레드 run 실패 후 메세지 요청 시 쓰레드 재생성?
+                delete_assistant_thread(request, user, db)
+                response = client.beta.threads.messages.create(
+                    thread_id=thread.thread_id,
+                    role="user",
+                    content=message.content
+                )
+                # raise HTTPException(status_code=400, detail=f"Thread run failed: {thread.run_state}")
+            else:
+                raise HTTPException(status_code=400, detail=f"A message is already in progress : {thread.run_state}")
 
-        response = client.beta.threads.messages.create(
-            thread_id=thread.thread_id,
-            role="user",
-            content=message.content
-        )
+        except OpenAIError as e:
+            raise HTTPException(status_code=500, detail=f"OpenAIError : Message creation failed: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Message creation failed: {str(e)}")
 
         new_message = AssistantMessage(
             thread_id=thread.thread_id,
@@ -143,34 +149,33 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
         db.commit()
         db.refresh(new_message)
 
-        await wait_for(
-            client.beta.threads.runs.stream(
+        with client.beta.threads.runs.stream(
             thread_id=thread.thread_id,
+            assistant_id=variables.OPENAI_ASSISTANT_ID,
             instructions=__INSTRUCTIONS__,
-            event_handler=EventHandler(db, thread.thread_id, new_message.message_id),
-        ).until_done(),
-            timeout=60.0  # 60초 이내에 응답을 받아야 함
-        )
+            event_handler=EventHandler(db, thread.thread_id),
+        ) as stream:
+            stream.until_done()
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Message creation failed: {str(e)}", headers={"X-Error": f"Message creation failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"Message creation failed: {str(e)}")
     except TimeoutError:
-        raise HTTPException(status_code=500, detail="Stream execution timed out", headers={"X-Error": "Stream execution timed out"})
+        raise HTTPException(status_code=500, detail="Stream execution timed out")
     except Exception as e: # 예외 수정 필요
         db.rollback()
         raise e
-    return {"status": "Message created and executed", "message": new_message.content}
+    return {"status": "Message created and executed", "content": new_message.content}
 
 # 특정 스레드의 메시지 조회
 @router.get("/messages")
 async def get_messages_by_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found", headers={"X-Error": "Thread not found"})
+        raise HTTPException(status_code=404, detail="Thread not found")
 
     messages = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).all()
     if not messages:
-        raise HTTPException(status_code=404, detail="No messages found for this thread", headers={"X-Error": "No messages found for this thread"})
+        raise HTTPException(status_code=404, detail="No messages found for this thread")
     
     return messages
 
@@ -186,39 +191,39 @@ async def get_messages_by_thread(request: Request, user: User = Depends(get_curr
 #                  o888o                                                 
 
 class EventHandler(AssistantEventHandler):
-    def __init__(self, db: Session, thread_id: str, message_id: str):
+    def __init__(self, db: Session, thread_id: str):
+        super().__init__()
         self.db = db
         self.thread_id = thread_id
-        self.message_id = message_id
-        self.current_run = None
-        self.status = "initializing"
 
     def update_message_status(self, status: str):
-        message = self.db.query(AssistantMessage).filter(AssistantMessage.message_id == self.message_id).first()
-        if message:
-            self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": status})
-            self.db.commit()
-            print(f"Thread {self.thread_id} status updated to {status}")
-
+        try:
+            message = self.db.query(AssistantMessage).filter(AssistantMessage.thread_id == self.thread_id).order_by(desc(AssistantMessage.created_at)).first()
+            if message:
+                try:
+                    self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": status})
+                    self.db.commit()
+                    print(f"Thread status updated: {status}")
+                except SQLAlchemyError as e:
+                    self.db.rollback()
+                    raise HTTPException(status_code=500, detail=f"Thread status update failed: {str(e)}")
+            else:
+                raise HTTPException(status_code=404, detail="Message not found")
+        except SQLAlchemyError as e:
+            raise HTTPException(status_code=500, detail=f"Message update failed: {str(e)}")
     def on_event(self, event: Any) -> None:
+        self.update_message_status(event.event)
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
-            self.update_message_status("requires_action")
             self.handle_requires_action(event.data, run_id)
-
-    @override
-    def on_run_created(self, run):
-        self.current_run = run
-
-    @override
-    def on_error(self, error: Any) -> None:
-        print(f'Error: {error}')
-
+        if event.event == 'thread.run.cancelled':
+            raise HTTPException(status_code=400, detail="Thread run cancelled") # 이 부분 HTTPException이 가능한지?
+            # 어떤 상태에서 cancle이 발생하는지 확인해야함.
+            # 내부적으로 어떻게 처리해야하는지
     @override
     def on_tool_call_created(self, tool_call):
         self.function_name = tool_call.function.name
         self.tool_id = tool_call.id
-
 
     @override
     def handle_requires_action(self, data, run_id):
@@ -240,16 +245,35 @@ class EventHandler(AssistantEventHandler):
             thread_id=self.current_run.thread_id,
             run_id=self.current_run.id,
             tool_outputs=tool_outputs,
-            event_handler=EventHandler(),
+            event_handler=EventHandler(self.db, self.thread_id),
         ) as stream:
-            for text in stream.text_deltas:
-                print(text, end="", flush=True)
-            print()
-
+            try:
+                for text in stream.text_deltas:
+                    self.db.commit()
+            except Exception as e:
+                self.db.rollback()
+                raise HTTPException(status_code=500, detail=f"Tool output submission failed: {str(e)}")
     @override
-    def on_message_done(self, message: Message) -> None:
-        self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": "done"})
-        self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"content": message})
-        self.db.commit()
-        print(f"Message {self.message_id} processing done")
-        print(f"Thread {self.thread_id} status updated to done")
+    def on_text_delta(self, delta, snapshot):
+        try:
+            message = self.db.query(AssistantMessage).filter(AssistantMessage.thread_id == self.thread_id).order_by(desc(AssistantMessage.created_at)).first()
+            if message:
+                new_content = message.content + delta.value
+                message.content = new_content
+                self.db.commit()
+            else:
+                raise HTTPException(status_code=404, detail="Message not found")
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Message update failed: {str(e)}")
+        
+    @override
+    def on_message_done(self, content: Message) -> None:
+        try:
+            message = self.db.query(AssistantMessage).filter(AssistantMessage.thread_id == self.thread_id).order_by(desc(AssistantMessage.created_at)).first()
+            if message:
+                message.content = content.content[0].text.value
+                self.db.commit()
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Message processing failed: {str(e)}")
