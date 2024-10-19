@@ -15,11 +15,11 @@ def is_valid_injection(input: str) -> bool:
 async def sql_injection_middleware(request: Request, call_next):
     for key, value in request.query_params.items():
         if not is_valid_injection(value):
-            raise HTTPException(status_code=400, detail="SQL Injection detected in query parameter", headers={"X-Error": "SQL Injection detected in query parameter"})
+            raise HTTPException(status_code=400, detail="SQL Injection detected in query parameter")
     
     for key, value in request.path_params.items():
         if not is_valid_injection(value):
-            raise HTTPException(status_code=400, detail="SQL Injection detected in path parameter", headers={"X-Error": "SQL Injection detected in path parameter"})
+            raise HTTPException(status_code=400, detail="SQL Injection detected in path parameter")
     
     response = await call_next(request)
     return response

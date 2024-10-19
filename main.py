@@ -86,8 +86,7 @@ app.include_router(reminder.router, prefix="/reminer", tags=["Reminer"])
 async def custom_http_exception_handler(request, exc):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
-        headers={"X-Error": "Error Detail"}
+        content={"detail": exc.detail}
     )
 
 # if __name__ == "__main__":

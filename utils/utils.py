@@ -26,14 +26,14 @@ def is_valid_phone(phone_number: str) -> bool:
 # 비밀번호 강도 확인 함수 (특수문자, 영어 대소문자, 숫자만 허용)
 def validate_password_strength(password: str):
     if len(password) < 8 or len(password) > 20:
-        raise HTTPException(status_code=400, detail="password length must be between 8 and 20 characters", headers={"X-Error": "password length must be between 8 and 20 characters"})
+        raise HTTPException(status_code=400, detail="password length must be between 8 and 20 characters")
 
     if not re.match(r"^[A-Za-z0-9@$!%*?&#]+$", password):
-        raise HTTPException(status_code=400, detail="password must contain only alphanumeric characters and special characters", headers={"X-Error": "password must contain only alphanumeric characters and special characters"})
+        raise HTTPException(status_code=400, detail="password must contain only alphanumeric characters and special characters")
     
     if not re.search(r"[a-z]", password):
-        raise HTTPException(status_code=400, detail="password must contain at least one lowercase letter", headers={"X-Error": "password must contain at least one lowercase letter"})
+        raise HTTPException(status_code=400, detail="password must contain at least one lowercase letter")
     
     if not re.search(r"[0-9]", password):
-        raise HTTPException(status_code=400, detail="password must contain at least one number", headers={"X-Error": "password must contain at least one number"})
+        raise HTTPException(status_code=400, detail="password must contain at least one number")
     return True

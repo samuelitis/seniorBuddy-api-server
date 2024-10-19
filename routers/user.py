@@ -16,10 +16,10 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
     try:
         user = get_user_by_id(db, user_id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found", headers={"X-Error": "User not found"})
+            raise HTTPException(status_code=404, detail="User not found")
         return user
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"User retrieval failed: {str(e)}", headers={"X-Error": f"User retrieval failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"User retrieval failed: {str(e)}")
 # 사용자 정보 조회
 @router.get("/me", response_model=UserResponse)
 def get_user_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -40,12 +40,12 @@ def update_user_info(user_update: UserResponse, user: User = Depends(get_current
             if is_valid_phone(user_update.phone_number):
                 user.phone_number = user_update.phone_number
             else:
-                raise HTTPException(status_code=400, detail="Invalid phone number", headers={"X-Error": "Invalid phone number"})
+                raise HTTPException(status_code=400, detail="Invalid phone number")
         if user_update.email is not None or user_update.email == "":
             if is_valid_email(user_update.email):
                 user.email = user_update.email
             else:
-                raise HTTPException(status_code=400, detail="Invalid email", headers={"X-Error": "Invalid email"})
+                raise HTTPException(status_code=400, detail="Invalid email")
             
         
         db.commit()
@@ -53,7 +53,7 @@ def update_user_info(user_update: UserResponse, user: User = Depends(get_current
         return user
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"User update failed: {str(e)}", headers={"X-Error": f"User update failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"User update failed: {str(e)}")
 
 #     oooooooooo.             oooo                .            
 #     `888'   `Y8b            `888              .o8            
@@ -75,7 +75,7 @@ def delete_user(user: User = Depends(get_current_user), db: Session = Depends(ge
         return {"message": "User deleted"}
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"User deletion failed: {str(e)}", headers={"X-Error": f"User deletion failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"User deletion failed: {str(e)}")
 
 #                                             .o8                                   
 #     oooo d8b  .ooooo.   .oooo.o  .ooooo.  .o888oo      oo.ooooo.  oooo oooo    ooo
@@ -97,7 +97,7 @@ def reset_password(new_password: str, user: User = Depends(get_current_user), db
         return {"message": "Password reset successful"}
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Password reset failed: {str(e)}", headers={"X-Error": f"Password reset failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"Password reset failed: {str(e)}")
 
 #     ooooo                                          .    o8o                       
 #     `888'                                        .o8    `"'                       
@@ -124,7 +124,7 @@ def update_location(latitude: float, longitude: float, user: User = Depends(get_
         return {"message": "Location updated successfully"}
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Location update failed: {str(e)}", headers={"X-Error": f"Location update failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"Location update failed: {str(e)}")
 
 ### 유저 프로필 API ###
 
@@ -141,4 +141,4 @@ def change_user_ai_profile(image_num: int = 0, user: UserResponse = Depends(get_
         return {"message": "user's ai profile updated successfully"}
     except SQLAlchemyError as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"User's ai profile update failed: {str(e)}", headers={"X-Error": f"User's ai profile update failed: {str(e)}"})
+        raise HTTPException(status_code=500, detail=f"User's ai profile update failed: {str(e)}")
