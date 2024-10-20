@@ -29,15 +29,15 @@ def get_user_me(user: User = Depends(get_current_user), db: Session = Depends(ge
 @handle_exceptions
 @router.put("/me", response_model=UserResponse)
 def update_user_info(user_update: UserResponse, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if user_update.user_real_name is not None or user_update.user_real_name == "":
+    if user_update.user_real_name !=     None and user_update.user_real_name != "":
         user.user_real_name = user_update.user_real_name
-        
-    if user_update.phone_number is not None or user_update.phone_number is not "":
+
+    if user_update.phone_number != None and user_update.phone_number != "":
         if is_valid_phone(user_update.phone_number):
             user.phone_number = user_update.phone_number
         else:
             raise HTTPException(status_code=400, detail="전화번호 형식이 올바르지 않습니다.")
-    if user_update.email is not None or user_update.email is not "":
+    if user_update.email != None and user_update.email != "":
         if is_valid_email(user_update.email):
             user.email = user_update.email
         else:
