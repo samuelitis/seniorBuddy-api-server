@@ -12,7 +12,7 @@ nest_asyncio.apply()
 
 import sqlite3
 from utils.config import variables
-from routers import medication, reminder, user, assistant, auth
+from routers import reminders, user, assistant, auth
 from database import engine, Base
 from middleware import sql_injection_middleware
 
@@ -79,8 +79,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(user.router, prefix="/users", tags=["Users"])
 app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-app.include_router(medication.router, prefix="/medication", tags=["Medication"])
-app.include_router(reminder.router, prefix="/reminer", tags=["Reminer"])
+app.include_router(reminders.router, prefix="/reminer", tags=["Reminer"])
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request, exc):

@@ -1,10 +1,9 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, TEXT
-from sqlalchemy import Enum as SQLAEnum
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field
 from typing import Optional
 from database import Base
-from datetime import time, date, datetime
+from datetime import datetime, date as dt_date, time as dt_time
 from enum import Enum
 
 # 메시지 전송자 유형 Enum 정의
@@ -69,6 +68,22 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
 
+class Reminder(Base):
+    __tablename__ = "reminders"
+
+    reminder_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    content = Column(TEXT, nullable=False)
+    reminder_type = Column(String(16), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=True)
+    reminder_time = Column(Time, nullable=False)
+    repeat_interval = Column(String(16), nullable=True)
+    repeat_day = Column(Integer, nullable=True)
+    additional_info = Column(TEXT, nullable=True)
+    notify = Column(Boolean, nullable=False)
+
+    user = relationship("User", back_populates="reminder")
 
 # 사용자 생성/조회 스키마
 class UserCreate(BaseModel):
@@ -130,28 +145,46 @@ class LoginData(BaseModel):
         }
 
 
-# 리마인더 생성용 모델 (복약 또는 병원 예약 정보 포함)
 class ReminderCreate(BaseModel):
     content: str
     reminder_type: str
-    start_date: date
-    end_date: Optional[date] = None
-    reminder_time: time
+    start_date: dt_date
+    end_date: Optional[dt_date] = None
+    reminder_time: dt_time
     repeat_interval: Optional[str] = None
     repeat_day: Optional[int] = None
-    repeat_until: Optional[date] = None
     additional_info: Optional[str] = None
     notify: bool = True
 
-# 리마인더 업데이트용 모델
 class ReminderUpdate(BaseModel):
     content: Optional[str] = None
     reminder_type: Optional[str] = None
-    start_date: Optional[date] = None
-    end_date: Optional[date] = None
-    reminder_time: Optional[time] = None
+    start_date: Optional[dt_date] = None
+    end_date: Optional[dt_date] = None
+    reminder_time: Optional[dt_time] = None
     repeat_interval: Optional[str] = None
     repeat_day: Optional[int] = None
-    repeat_until: Optional[date] = None
     additional_info: Optional[str] = None
     notify: Optional[bool] = None
+    
+class ReminderResponse(BaseModel):
+    reminder_id: int
+    content: str
+    reminder_type: str
+    start_date: dt_date
+    end_date: Optional[dt_date] = None
+    reminder_time: dt_time
+    repeat_interval: Optional[str] = None
+    repeat_day: Optional[int] = None
+    additional_info: Optional[str] = None
+    notify: bool = True
+
+    class Config:
+        from_attributes = True
+
+class ReminderFilter(BaseModel):
+    reminder_type: Optional[str] = None
+    start_date: Optional[dt_date] = None
+    end_date: Optional[dt_date] = None
+    repeat_interval: Optional[str] = None
+    notify: Optional[bool] = None 
