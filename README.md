@@ -27,3 +27,7 @@
      --log-opt max-file=3 \
      api-server
    ```
+4. 서버 시간 설정
+   ```bash
+   sudo timedatectl set-timezone Asia/Seoul
+   ```
