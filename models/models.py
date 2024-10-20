@@ -1,10 +1,10 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, TEXT
 from sqlalchemy import Enum as SQLAEnum
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from database import Base
-from datetime import time, datetime
+from datetime import time, date, datetime
 from enum import Enum
 
 # 메시지 전송자 유형 Enum 정의
@@ -129,24 +129,29 @@ class LoginData(BaseModel):
             }
         }
 
-class MedicationTimeCreate(BaseModel):
-    medication_name: str
-    dosage: str
-    medication_time: time
 
-class MedicationTimeUpdate(BaseModel):
-    medication_name: str = None
-    dosage: str = None
-    medication_time: time = None
-
+# 리마인더 생성용 모델 (복약 또는 병원 예약 정보 포함)
 class ReminderCreate(BaseModel):
     content: str
-    mind_date: str
-    mind_time: time
-    type: str
+    reminder_type: str
+    start_date: date
+    end_date: Optional[date] = None
+    reminder_time: time
+    repeat_interval: Optional[str] = None
+    repeat_day: Optional[int] = None
+    repeat_until: Optional[date] = None
+    additional_info: Optional[str] = None
+    notify: bool = True
 
+# 리마인더 업데이트용 모델
 class ReminderUpdate(BaseModel):
-    content: str = None
-    mind_date: str = None
-    mind_time: time = None
-    type: str = None
+    content: Optional[str] = None
+    reminder_type: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    reminder_time: Optional[time] = None
+    repeat_interval: Optional[str] = None
+    repeat_day: Optional[int] = None
+    repeat_until: Optional[date] = None
+    additional_info: Optional[str] = None
+    notify: Optional[bool] = None

@@ -117,7 +117,7 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
         if not thread:
             thread = await create_assistant_thread(user.user_id, db)
         try:
-            if thread.run_state is not None or thread.run_state in ["thread.run.completed", "thread.run.cancelled"]: # completed, cancelled 상태를 분리해야할 필요가 있는지 확인해봐야함.
+            if thread.run_state != "None" or thread.run_state in ["thread.run.completed", "thread.run.cancelled"]: # completed, cancelled 상태를 분리해야할 필요가 있는지 확인해봐야함.
                 response = client.beta.threads.messages.create(
                     thread_id=thread.thread_id,
                     role="user",
