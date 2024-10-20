@@ -2,5 +2,6 @@ from .database import (
     get_db, 
     Base,
     engine, 
-    SessionLocal
+    SessionLocal,
+    handle_exceptions
 )
