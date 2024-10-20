@@ -31,7 +31,7 @@ class User(Base):
     ai_profile = Column(Integer, default=1)
 
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
-
+    reminders = relationship("Reminder", back_populates="user")
 
 # AssistantThreads 테이블 모델 정의
 class AssistantThread(Base):
@@ -83,7 +83,7 @@ class Reminder(Base):
     additional_info = Column(TEXT, nullable=True)
     notify = Column(Boolean, nullable=False)
 
-    user = relationship("User", back_populates="reminder")
+    user = relationship("User", back_populates="reminders")
 
 # 사용자 생성/조회 스키마
 class UserCreate(BaseModel):
@@ -166,7 +166,7 @@ class ReminderUpdate(BaseModel):
     repeat_day: Optional[int] = None
     additional_info: Optional[str] = None
     notify: Optional[bool] = None
-    
+
 class ReminderResponse(BaseModel):
     reminder_id: int
     content: str
