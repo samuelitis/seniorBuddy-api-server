@@ -71,7 +71,7 @@ async def delete_reminders(fillter: ReminderFilter, user: User = Depends(get_cur
 async def set_reminder_reminder(reminder_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     reminder = db.query(Reminder).filter(Reminder.user_id == user.user_id, Reminder.reminder_id == reminder_id).first()
     if reminder is None:
-        raise HTTPException(status_code=404, detail="Reminder not found")
+        raise HTTPException(status_code=404, detail="리마인더를 찾지 못했습니다.")
     reminder.notify = not reminder.notify
     db.commit()
     db.refresh(reminder)

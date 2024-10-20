@@ -81,11 +81,11 @@ async def get_threads_by_user(request: Request, user: User = Depends(get_current
 async def delete_assistant_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise HTTPException(status_code=404, detail="쓰레드를 찾을 수 없습니다.")
     
     db.delete(thread)
     db.commit()
-    return {"message": "Thread deleted successfully"}
+    return {"message": "쓰레드를 삭제했습니다."}
 #    ooo        ooooo                                                           
 #    `88.       .888'                                                           
 #     888b     d'888   .ooooo.   .oooo.o  .oooo.o  .oooo.    .oooooooo  .ooooo. 
@@ -118,12 +118,12 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
             )
             # raise HTTPException(status_code=400, detail=f"Thread run failed: {thread.run_state}")
         else:
-            raise HTTPException(status_code=400, detail=f"A message is already in progress : {thread.run_state}")
+            raise HTTPException(status_code=400, detail=f"메세지가 실행중입니다: {thread.run_state}")
 
     except OpenAIError as e:
-        raise HTTPException(status_code=500, detail=f"OpenAIError : Message creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OpenAIError : 메세지 생성 실패: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Message creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"메세지 생성 실패: {str(e)}")
 
     new_message = AssistantMessage(
         thread_id=thread.thread_id,
@@ -144,17 +144,17 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
         stream.until_done()
     return {"status": "Message created and executed", "content": new_message.content}
 
-# 특정 스레드의 메시지 조회
+# 특정 스레드의 메세지 조회
 @handle_exceptions
 @router.get("/messages")
 async def get_messages_by_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise HTTPException(status_code=404, detail="쓰레드를 찾을 수 없습니다.")
 
     messages = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).all()
     if not messages:
-        raise HTTPException(status_code=404, detail="No messages found for this thread")
+        raise HTTPException(status_code=404, detail="메세지를 찾을 수 없습니다.")
     
     return messages
 
@@ -187,7 +187,7 @@ class EventHandler(AssistantEventHandler):
                     self.db.rollback()
                     raise HTTPException(status_code=500, detail=f"메세지 상태 업데이트 실패: {str(e)}")
             else:
-                raise HTTPException(status_code=404, detail="메시지가 존재하지 않습니다.")
+                raise HTTPException(status_code=404, detail="메세지가 존재하지 않습니다.")
         except SQLAlchemyError as e:
             raise HTTPException(status_code=500, detail=f"메세지 상태 업데이트 실패: {str(e)}")
     def on_event(self, event: Any) -> None:
@@ -241,7 +241,7 @@ class EventHandler(AssistantEventHandler):
                 message.content = new_content
                 self.db.commit()
             else:
-                raise HTTPException(status_code=404, detail="메시지가 존재하지 않습니다.")
+                raise HTTPException(status_code=404, detail="메세지가 존재하지 않습니다.")
         except SQLAlchemyError as e:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=f"메세지 델타 처리 실패: {str(e)}")
@@ -255,4 +255,4 @@ class EventHandler(AssistantEventHandler):
                 self.db.commit()
         except SQLAlchemyError as e:
             self.db.rollback()
-            raise HTTPException(status_code=500, detail=f"메시지 종료 처리 실패: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"메세지 종료 처리 실패: {str(e)}")

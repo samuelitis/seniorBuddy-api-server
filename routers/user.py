@@ -70,7 +70,7 @@ def update_user_info(user_update: UserResponse, user: User = Depends(get_current
 def delete_user(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     db.delete(user)
     db.commit()
-    return {"message": "User deleted"}
+    return {"message": "회원 정보를 삭제했습니다."}
 
 #                                             .o8                                   
 #     oooo d8b  .ooooo.   .oooo.o  .ooooo.  .o888oo      oo.ooooo.  oooo oooo    ooo
@@ -89,7 +89,7 @@ def reset_password(new_password: str, user: User = Depends(get_current_user), db
     db.commit()
     db.refresh(user)
 
-    return {"message": "Password reset successful"}
+    return {"message": "비밀번호를 변경했습니다."}
 
 #     ooooo                                          .    o8o                       
 #     `888'                                        .o8    `"'                       
@@ -114,7 +114,7 @@ def update_location(latitude: float, longitude: float, user: User = Depends(get_
     user.last_update_location = datetime.utcnow()
     db.commit()
     db.refresh(user)
-    return {"message": "Location updated successfully"}
+    return {"message": "위치 정보를 업데이트했습니다."}
 
 ### 유저 프로필 API ###
 
@@ -129,4 +129,4 @@ def change_user_ai_profile(image_num: int = 0, user: UserResponse = Depends(get_
     user.ai_profile = image_num
     db.commit()
     db.refresh(user)
-    return {"message": "user's ai profile updated successfully"} 
+    return {"message": "사용자 프로필을 변경했습니다."}

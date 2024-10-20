@@ -32,21 +32,21 @@ router = APIRouter()
 def register(user: UserCreate, db: Session = Depends(get_db)):
     # 이메일 및 전화번호 형식 확인
     if user.email is not None and not is_valid_email(user.email):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 형식이 올바르지 않습니다")
     if not is_valid_phone(user.phone_number):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid phone number format")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호 형식이 올바르지 않습니다")
     
     existing_user = db.query(User).filter(User.phone_number == user.phone_number).first()
     if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Phone number already registered")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호가 이미 등록되어 있습니다")
 
     if user.email:
         existing_email_user = db.query(User).filter(User.email == user.email).first()
         if existing_email_user:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일이 이미 등록되어 있습니다")
 
     if not validate_password_strength(user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid password strength")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="비밀번호는 8자 이상이어야 하며, 영문, 숫자, 특수문자를 포함해야 합니다")
     
     hashed_password = hash_password(user.password)
 
@@ -100,9 +100,9 @@ def login(data: LoginData, db: Session = Depends(get_db)):
         user = db.query(User).filter(User.phone_number == data.identifier).first()
 
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다")
     if not verify_password(data.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Incorrect password")
+        raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다")
 
     # 기존 리프레시 토큰 무효화
     existing_refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
@@ -123,17 +123,17 @@ def login(data: LoginData, db: Session = Depends(get_db)):
 @router.post("/refresh")
 def refresh(access_token: str = Header(None), refresh_token: str = Header(None), db: Session = Depends(get_db)):
     if not access_token or not refresh_token:
-        raise HTTPException(status_code=400, detail="Access or refresh token missing")
+        raise HTTPException(status_code=400, detail="토큰이 누락되었습니다")
 
     try:
         access_payload = token_manager.decode_token(access_token, refresh=True)
         user_id = access_payload.get("sub")
     except Exception as e:
-        raise HTTPException(status_code=401, detail="Invalid access token")
+        raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
 
 
     if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid access token")
+        raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
         # 보안적인 이유로 인해 더 많은 정보를 제공하지 않음
         # 예외 추가 X
         # 아래의 토큰 미일치도 안넣는게 좋을 수 있으나
@@ -142,12 +142,12 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
 
     user = db.query(User).filter(User.user_id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다")
 
     valid_refresh_token = token_manager.get_valid_refresh_token(db, refresh_token)
     
     if valid_refresh_token.user_id != user.user_id:
-        raise HTTPException(status_code=401, detail="Refresh token does not match user")
+        raise HTTPException(status_code=401, detail="리프레시 토큰이 일치하지 않습니다")
 
     new_access_token = token_manager.create_access_token(user.user_id)
     new_refresh_token = token_manager.create_refresh_token(user.user_id)
@@ -176,8 +176,8 @@ def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)
     refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
     
     if not refresh_token:
-        raise HTTPException(status_code=404, detail="Refresh token not found")
+        raise HTTPException(status_code=404, detail="리프레시 토큰을 찾을 수 없습니다")
     
     token_manager.del_refresh_token(db, refresh_token.token)
 
-    return JSONResponse(content={"message": "Logged out successfully"})
+    return JSONResponse(content={"message": "로그아웃 되었습니다"})

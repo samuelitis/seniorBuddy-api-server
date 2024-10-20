@@ -6,7 +6,7 @@ from database import Base
 from datetime import datetime, date as dt_date, time as dt_time
 from enum import Enum
 
-# 메시지 전송자 유형 Enum 정의
+# 메세지 전송자 유형 Enum 정의
 class SenderType(str, Enum):
     user = 'user'
     system = 'system'
@@ -104,7 +104,7 @@ class AssistantThreadCreate(BaseModel):
     class Config:
         from_attributes = True
 
-# 메시지 생성/조회 스키마
+# 메세지 생성/조회 스키마
 class AssistantMessageCreate(BaseModel):
     sender_type: SenderType
     content: str
