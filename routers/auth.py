@@ -35,7 +35,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     # 이메일 및 전화번호 형식 확인
     if user.email is not None and not is_valid_email(user.email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 형식이 올바르지 않습니다")
-    if not is_valid_phone(user.phone_number):
+    if user.phone_number is not None and not is_valid_phone(user.phone_number):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호 형식이 올바르지 않습니다")
     
     existing_user = db.query(User).filter(User.phone_number == user.phone_number).first()
