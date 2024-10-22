@@ -1,6 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional
 from database import Base
 from datetime import datetime, date as dt_date, time as dt_time
@@ -21,7 +21,7 @@ class User(Base):
     user_uuid = Column(String(36), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     user_type = Column(String(16), nullable=False)
-    phone_number = Column(String(20), nullable=False)
+    phone_number = Column(String(20), nullable=True)
     email = Column(String(100), unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
@@ -33,6 +33,11 @@ class User(Base):
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
     reminders = relationship("Reminder", back_populates="user")
 
+    @validator('email')
+    def check_contact(cls, v, values, **kwargs):
+        if 'phone_number' in values and v is None and values['phone_number'] is None:
+            raise ValueError('이메일 혹은 휴대폰 번호 둘중 하나는 입력되어야합니다.')
+        return v
 # AssistantThreads 테이블 모델 정의
 class AssistantThread(Base):
     __tablename__ = "assistant_threads"
@@ -114,16 +119,16 @@ class AssistantMessageCreate(BaseModel):
 class UserResponse(BaseModel):
     user_real_name: str
     user_type: str
-    phone_number: str
-    email: str = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
 
     class Config:
         from_attributes = True
 class RegisterResponse(BaseModel):
     user_real_name: str
     user_type: str
-    phone_number: str
-    access_token: str
+    phone_number: Optional[str] = None
+    access_token: Optional[str] = None
     refresh_token: str
     token_type: str = "bearer"
 
