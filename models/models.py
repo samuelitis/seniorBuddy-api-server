@@ -90,8 +90,8 @@ class UserCreate(BaseModel):
     user_real_name: str
     password: str
     user_type: str
-    phone_number: str
-    email: str = None
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
 
     class Config:
         from_attributes = True

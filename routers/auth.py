@@ -30,6 +30,8 @@ router = APIRouter()
 @handle_exceptions
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
+    if user.email is None or user.phone_number is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 혹은 전화번호를 입력해주세요")
     # 이메일 및 전화번호 형식 확인
     if user.email is not None and not is_valid_email(user.email):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 형식이 올바르지 않습니다")
