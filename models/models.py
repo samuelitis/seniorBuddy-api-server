@@ -159,7 +159,7 @@ class ReminderCreate(BaseModel):
     additional_info: Optional[str] = None
     notify: bool = True
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "content": "Dentist Appointment",
                 "reminder_type": "appointment",
@@ -183,7 +183,7 @@ class ReminderUpdate(BaseModel):
     notify: Optional[bool] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "content": "감기약",
                 "reminder_type": "medication",
@@ -208,7 +208,7 @@ class ReminderResponse(BaseModel):
     notify: bool = True
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "reminder_id": 1,
                 "content": "치과예약",
@@ -230,7 +230,7 @@ class ReminderFilter(BaseModel):
     notify: Optional[bool] = None
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "reminder_type": "medication",
                 "start_date": "2024-10-23",
