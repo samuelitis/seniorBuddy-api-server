@@ -1,7 +1,7 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time, JSON
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, Field, validator
-from typing import Optional
+from pydantic import BaseModel, Field, validator, Json
+from typing import Optional, List
 from database import Base
 from datetime import datetime, date as dt_date, time as dt_time
 from enum import Enum
@@ -83,8 +83,7 @@ class Reminder(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     reminder_time = Column(Time, nullable=False)
-    repeat_interval = Column(String(16), nullable=True)
-    repeat_day = Column(Integer, nullable=True)
+    repeat_day = Column(JSON, nullable=True)
     additional_info = Column(TEXT, nullable=True)
     notify = Column(Boolean, nullable=False)
 
@@ -156,10 +155,22 @@ class ReminderCreate(BaseModel):
     start_date: dt_date
     end_date: Optional[dt_date] = None
     reminder_time: dt_time
-    repeat_interval: Optional[str] = None
-    repeat_day: Optional[int] = None
+    repeat_day: Optional[Json[List[int]]] = None
     additional_info: Optional[str] = None
     notify: bool = True
+    class Config:
+        schema_extra = {
+            "example": {
+                "content": "Dentist Appointment",
+                "reminder_type": "appointment",
+                "start_date": "2024-01-15",
+                "end_date": "2024-01-15",
+                "reminder_time": "15:00:00",
+                "repeat_day": "[2, 4]",  # Tuesdays and Thursdays
+                "additional_info": "Bring insurance papers",
+                "notify": True
+            }
+        }
 
 class ReminderUpdate(BaseModel):
     content: Optional[str] = None
@@ -167,10 +178,23 @@ class ReminderUpdate(BaseModel):
     start_date: Optional[dt_date] = None
     end_date: Optional[dt_date] = None
     reminder_time: Optional[dt_time] = None
-    repeat_interval: Optional[str] = None
-    repeat_day: Optional[int] = None
+    repeat_day: Optional[Json[List[int]]] = None
     additional_info: Optional[str] = None
     notify: Optional[bool] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "content": "감기약",
+                "reminder_type": "medication",
+                "start_date": "2024-10-23",
+                "end_date": "2024-10-30",
+                "reminder_time": "21:00:00",
+                "repeat_day": "[0, 1, 2, 3, 4, 5, 6]",
+                "additional_info": "일주일 동안 감기약 복용, 자기전 복용",
+                "notify": False
+            }
+        }
 
 class ReminderResponse(BaseModel):
     reminder_id: int
@@ -179,17 +203,39 @@ class ReminderResponse(BaseModel):
     start_date: dt_date
     end_date: Optional[dt_date] = None
     reminder_time: dt_time
-    repeat_interval: Optional[str] = None
-    repeat_day: Optional[int] = None
+    repeat_day: Optional[Json[List[int]]] = None
     additional_info: Optional[str] = None
     notify: bool = True
 
     class Config:
-        from_attributes = True
+        schema_extra = {
+            "example": {
+                "reminder_id": 1,
+                "content": "치과예약",
+                "reminder_type": "appointment",
+                "start_date": "2024-10-23",
+                "end_date": "2024-10-23",
+                "reminder_time": "15:00:00",
+                "repeat_day": "",
+                "additional_info": "경산 미르치과 2층 ",
+                "notify": True
+            }
+        }
 
 class ReminderFilter(BaseModel):
     reminder_type: Optional[str] = None
     start_date: Optional[dt_date] = None
     end_date: Optional[dt_date] = None
-    repeat_interval: Optional[str] = None
-    notify: Optional[bool] = None 
+    repeat_day: Optional[Json[List[int]]] = None
+    notify: Optional[bool] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "reminder_type": "medication",
+                "start_date": "2024-10-23",
+                "end_date": "2099-12-31",
+                "repeat_day": "[0, 1, 2, 3, 4, 5, 6]",
+                "notify": True
+            }
+        }

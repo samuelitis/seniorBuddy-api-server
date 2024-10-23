@@ -9,13 +9,19 @@ from database import get_db, handle_exceptions
 from models import User, Reminder, ReminderCreate, ReminderUpdate, ReminderResponse, ReminderFilter
 from utils import token_manager, get_current_user
 
+import json
+
 router = APIRouter()
 
 @handle_exceptions
 @router.post("/")
-async def create_reminder(Reminder: ReminderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def create_reminder(remind: ReminderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     user_id = user.user_id
-    Reminder = ReminderCreate(**Reminder.dict(), user_id=user_id)
+    reminder = Reminder(
+        **remind.dict(),
+        user_id=user_id,
+        repeat_day=json.dumps(remind.repeat_day) if remind.repeat_day is not None else None
+    )
     db.add(Reminder)
     db.commit()
     db.refresh(Reminder)
@@ -30,10 +36,11 @@ async def get_reminders(filter: ReminderFilter, user: User = Depends(get_current
     """
     
     query = db.query(Reminder).filter(Reminder.user_id == user.user_id)
-    
-    for key, value in filter.dict().items():
-        if value is not None:
-            query = query.filter(getattr(Reminder, key) == value)
+    filter_data = filter.dict(exclude_none=True)
+    for key, value in filter_data.items():
+        if key == "repeat_day" and value is not None:
+            value = json.dumps(value)
+        query = query.filter(getattr(Reminder, key) == value)
     reminders = query.all()
     if not reminders:
         raise HTTPException(status_code=404, detail="리마인더를 찾지 못했습니다.")
@@ -41,30 +48,35 @@ async def get_reminders(filter: ReminderFilter, user: User = Depends(get_current
 
 @handle_exceptions
 @router.put("/{reminder_id}", response_model=ReminderResponse)
-async def update_reminder(reminder_id: int, Reminder: ReminderUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    reminder = db.query(Reminder).filter(Reminder.user_id == user.user_id, Reminder.reminder_id == reminder_id).first()
+async def update_reminder(reminder_id: int, remind: ReminderUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    reminder = db.query(remind).filter(remind.user_id == user.user_id, remind.reminder_id == reminder_id).first()
     if reminder is None:
         raise HTTPException(status_code=404, detail="리마인더를 찾지 못했습니다.")
-    for key, value in Reminder.dict().items():
-        if value is not None:
-            setattr(reminder, key, value)
+
+    for key, value in remind.items():
+        if key == "repeat_day" and value is not None:
+            value = json.dumps(value)
+        setattr(reminder, key, value)
     db.commit()
     db.refresh(reminder)
     return reminder
 
 @handle_exceptions
 @router.delete("/", response_model=dict)
-async def delete_reminders(fillter: ReminderFilter, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def delete_reminders(filter: ReminderFilter, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     query = db.query(Reminder).filter(Reminder.user_id == user.user_id)
     for key, value in filter.dict().items():
+        if key == "repeat_day" and value is not None:
+            value = json.dumps(value)
         if value is not None:
             query = query.filter(getattr(Reminder, key) == value)
     reminders = query.all()
     if not reminders:
         raise HTTPException(status_code=404, detail="리마인더를 찾지 못했습니다.")
 
-    query.delete(synchronize_session=False)
-    return reminders
+    count = query.delete(synchronize_session=False)
+    db.commit()
+    return {"deleted_count": count}
 
 @handle_exceptions
 @router.post("/{reminder_id}/notify", response_model=ReminderResponse)
