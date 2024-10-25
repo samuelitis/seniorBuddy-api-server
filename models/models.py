@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time, JSON
 from sqlalchemy.orm import relationship
+from sqlalchemy.schema import Index
 from pydantic import BaseModel, Field, validator, Json
 from typing import Optional, List
 from database import Base
@@ -25,8 +26,9 @@ class User(Base):
     ai_profile = Column(Integer, default=1)
 
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
-    reminders = relationship("Reminder", back_populates="user")
-
+    medication_reminders = relationship("MedicationReminder", back_populates="user")
+    hospital_reminders = relationship("HospitalReminder", back_populates="user")
+ 
     @validator('email')
     def check_contact(cls, v, values, **kwargs):
         if 'phone_number' in values and v is None and values['phone_number'] is None:
@@ -69,6 +71,7 @@ class RefreshToken(Base):
 
 class MedicationReminder(Base):
     __tablename__ = "medication_reminders"
+    __table_args__ = (Index('idx_user_id_medication_reminders', 'user_id'),)
 
     reminder_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
@@ -85,10 +88,11 @@ class MedicationReminder(Base):
     dose_bedtime = Column(Boolean, nullable=False)
     additional_info = Column(TEXT, nullable=True)
 
-    user = relationship("User", back_populates="reminders")
+    user = relationship("User", back_populates="medication_reminders")
 
 class HospitalReminder(Base):
     __tablename__ = "hospital_reminders"
+    __table_args__ = (Index('idx_user_id_hospital_reminders', 'user_id'),)
 
     reminder_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
@@ -97,7 +101,7 @@ class HospitalReminder(Base):
     reminder_time = Column(Time, nullable=False)
     additional_info = Column(TEXT, nullable=True)
 
-    user = relationship("User", back_populates="reminders")
+    user = relationship("User", back_populates="hospital_reminders")
 
 # 사용자 생성/조회 스키마
 class UserCreate(BaseModel):
