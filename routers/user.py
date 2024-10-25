@@ -13,7 +13,7 @@ router = APIRouter()
 @handle_exceptions
 @router.get("/dev/search/{user_id}", response_model=UserResponse)
 def get_user(admin_password: str, user_id: int, db: Session = Depends(get_db)):
-    if admin_password is not "seniorbuddy-admin%21":
+    if admin_password != "seniorbuddy-admin":
         raise HTTPException(status_code=501, detail="알수없는 에러 발생")
     user = get_user_by_id(db, user_id)
     if not user:
