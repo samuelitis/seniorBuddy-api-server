@@ -158,6 +158,18 @@ async def get_messages_by_thread(request: Request, user: User = Depends(get_curr
     
     return messages
 
+@handle_exceptions
+@router.get("/messages/latest")
+async def get_latest_message(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
+    if not thread:
+        raise HTTPException(status_code=404, detail="쓰레드를 찾을 수 없습니다.")
+
+    latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(desc(AssistantMessage.created_at)).first()
+    if not latest_message:
+        raise HTTPException(status_code=404, detail="최신 메세지를 찾을 수 없습니다.")
+    
+    return latest_message
 
 #       .oooooo.                                               .o.       ooooo
 #      d8P'  `Y8b                                             .888.      `888'
