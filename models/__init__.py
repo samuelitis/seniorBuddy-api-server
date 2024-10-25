@@ -1,7 +1,5 @@
 from .models import (
-    SenderType,
     User,
-    Reminder,
     AssistantThread,
     AssistantMessage,
     RefreshToken,
@@ -12,10 +10,10 @@ from .models import (
     TokenResponse,
     LoginData,
     RegisterResponse,
-    ReminderCreate,
-    ReminderUpdate,
-    ReminderResponse,
-    ReminderFilter,
+    MedicationReminderCreate, 
+    HospitalReminderCreate,
+    MedicationReminder,
+    HospitalReminder,
     
 )
 

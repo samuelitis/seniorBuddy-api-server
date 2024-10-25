@@ -79,7 +79,7 @@ Base.metadata.create_all(bind=engine)
 app.include_router(user.router, prefix="/users", tags=["Users"])
 app.include_router(assistant.router, prefix="/assistant", tags=["Assistant"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-app.include_router(reminders.router, prefix="/reminer", tags=["Reminer"])
+app.include_router(reminders.router, prefix="/reminder", tags=["Reminder"])
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request, exc):

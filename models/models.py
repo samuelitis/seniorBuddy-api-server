@@ -3,14 +3,8 @@ from sqlalchemy.orm import relationship
 from pydantic import BaseModel, Field, validator, Json
 from typing import Optional, List
 from database import Base
-from datetime import datetime, date as dt_date, time as dt_time
+from datetime import datetime, date as dt_date, time as dt_time, datetime as dt_datetime
 from enum import Enum
-
-# 메세지 전송자 유형 Enum 정의
-class SenderType(str, Enum):
-    user = 'user'
-    system = 'system'
-    assistant = 'assistant'
 
 # Users 테이블 모델 정의
 class User(Base):
@@ -73,19 +67,35 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
 
-class Reminder(Base):
-    __tablename__ = "reminders"
+class MedicationReminder(Base):
+    __tablename__ = "medication_reminders"
 
     reminder_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
     content = Column(TEXT, nullable=False)
-    reminder_type = Column(String(16), nullable=False)
     start_date = Column(Date, nullable=False)
-    end_date = Column(Date, nullable=True)
-    reminder_time = Column(Time, nullable=False)
-    repeat_day = Column(JSON, nullable=True)
+    end_date = Column(Date, nullable=False)
+    dose_morning = Column(Boolean, nullable=False)
+    dose_breakfast_before = Column(Boolean, nullable=False)
+    dose_breakfast_after = Column(Boolean, nullable=False)
+    dose_lunch_before = Column(Boolean, nullable=False)
+    dose_lunch_after = Column(Boolean, nullable=False)
+    dose_dinner_before = Column(Boolean, nullable=False)
+    dose_dinner_after = Column(Boolean, nullable=False)
+    dose_bedtime = Column(Boolean, nullable=False)
     additional_info = Column(TEXT, nullable=True)
-    notify = Column(Boolean, nullable=False)
+
+    user = relationship("User", back_populates="reminders")
+
+class HospitalReminder(Base):
+    __tablename__ = "hospital_reminders"
+
+    reminder_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    content = Column(TEXT, nullable=False)
+    start_date = Column(Date, nullable=False)
+    reminder_time = Column(Time, nullable=False)
+    additional_info = Column(TEXT, nullable=True)
 
     user = relationship("User", back_populates="reminders")
 
@@ -110,7 +120,7 @@ class AssistantThreadCreate(BaseModel):
 
 # 메세지 생성/조회 스키마
 class AssistantMessageCreate(BaseModel):
-    sender_type: SenderType
+    sender_type: str = "user"
     content: str
     class Config:
         from_attributes = True
@@ -140,6 +150,7 @@ class LoginData(BaseModel):
     identifier: str  # 이메일 또는 전화번호 그냥 문자열로 받음
     password: str
 
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -147,95 +158,33 @@ class LoginData(BaseModel):
                 "password": "password123"
             }
         }
-
-
-class ReminderCreate(BaseModel):
+class MedicationReminderCreate(BaseModel):
     content: str
-    reminder_type: str
     start_date: dt_date
-    end_date: Optional[dt_date] = None
-    reminder_time: dt_time
-    repeat_day: Optional[Json[List[int]]] = None
+    repeat_day: int
+    frequency: List[str] = ["아침식후", "점심식후", "저녁식후"]
     additional_info: Optional[str] = None
-    notify: bool = True
     class Config:
-        json_schema_extra = {
-            "example": {
-                "content": "Dentist Appointment",
-                "reminder_type": "appointment",
-                "start_date": "2024-01-15",
-                "end_date": "2024-01-15",
-                "reminder_time": "15:00:00",
-                "repeat_day": "[2, 4]",  # Tuesdays and Thursdays
-                "additional_info": "Bring insurance papers",
-                "notify": True
-            }
-        }
-
-class ReminderUpdate(BaseModel):
-    content: Optional[str] = None
-    reminder_type: Optional[str] = None
-    start_date: Optional[dt_date] = None
-    end_date: Optional[dt_date] = None
-    reminder_time: Optional[dt_time] = None
-    repeat_day: Optional[Json[List[int]]] = None
-    additional_info: Optional[str] = None
-    notify: Optional[bool] = None
-
-    class Config:
+        from_attributes = True
         json_schema_extra = {
             "example": {
                 "content": "감기약",
-                "reminder_type": "medication",
-                "start_date": "2024-10-23",
-                "end_date": "2024-10-30",
-                "reminder_time": "21:00:00",
-                "repeat_day": "[0, 1, 2, 3, 4, 5, 6]",
-                "additional_info": "일주일 동안 감기약 복용, 자기전 복용",
-                "notify": False
+                "start_date": "2024-10-24",
+                "day": 7,
+                "frequency": ["기상", "아침식전", "아침식후", "점심식전", "점심식후", "저녁시전", "저녁식후", "취침전"],
+                "additional_info": "물많이 먹기",
             }
         }
-
-class ReminderResponse(BaseModel):
-    reminder_id: int
+class HospitalReminderCreate(BaseModel):
     content: str
-    reminder_type: str
-    start_date: dt_date
-    end_date: Optional[dt_date] = None
-    reminder_time: dt_time
-    repeat_day: Optional[Json[List[int]]] = None
+    start_date_time: dt_datetime
     additional_info: Optional[str] = None
-    notify: bool = True
-
     class Config:
+        from_attributes = True
         json_schema_extra = {
             "example": {
-                "reminder_id": 1,
-                "content": "치과예약",
-                "reminder_type": "appointment",
-                "start_date": "2024-10-23",
-                "end_date": "2024-10-23",
-                "reminder_time": "15:00:00",
-                "repeat_day": "",
-                "additional_info": "경산 미르치과 2층 ",
-                "notify": True
-            }
-        }
-
-class ReminderFilter(BaseModel):
-    reminder_type: Optional[str] = None
-    start_date: Optional[dt_date] = None
-    end_date: Optional[dt_date] = None
-    repeat_day: Optional[Json[List[int]]] = None
-    notify: Optional[bool] = None
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "reminder_type": "medication",
-                "start_date": "2024-10-23",
-                "end_date": "2099-12-31",
-                "repeat_day": "[0, 1, 2, 3, 4, 5, 6]",
-                "notify": True
+                "content": "경산 하양읍 미르치과 예약",
+                "start_date": "2024-11-24 15:00:00",
+                "additional_info": "양치하기",
             }
         }
