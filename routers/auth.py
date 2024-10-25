@@ -125,6 +125,14 @@ def login(data: LoginData, db: Session = Depends(get_db)):
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
+#    ooooooooo.              .o88o.                             oooo       
+#    `888   `Y88.            888 `"                             `888       
+#     888   .d88'  .ooooo.  o888oo  oooo d8b  .ooooo.   .oooo.o  888 .oo.  
+#     888ooo88P'  d88' `88b  888    `888""8P d88' `88b d88(  "8  888P"Y88b 
+#     888`88b.    888ooo888  888     888     888ooo888 `"Y88b.   888   888 
+#     888  `88b.  888    .o  888     888     888    .o o.  )88b  888   888 
+#    o888o  o888o `Y8bod8P' o888o   d888b    `Y8bod8P' 8""888P' o888o o888o
+
 @handle_exceptions
 @router.post("/refresh")
 def refresh(access_token: str = Header(None), refresh_token: str = Header(None), db: Session = Depends(get_db)):

@@ -11,8 +11,10 @@ router = APIRouter()
 
 # 특정 사용자 조회 <관리용> 
 @handle_exceptions
-@router.get("/dev/search/{user_id}", response_model=UserResponse) # 엔드포인트 우선순위 에러
-def get_user(user_id: int, db: Session = Depends(get_db)):
+@router.get("/dev/search/{user_id}", response_model=UserResponse)
+def get_user(admin_password: str, user_id: int, db: Session = Depends(get_db)):
+    if admin_password is not "seniorbuddy-admin!":
+        raise HTTPException(status_code=500, detail="알수없는 에러 발생")
     user = get_user_by_id(db, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="유저를 찾을 수 없습니다.")
@@ -60,11 +62,7 @@ def update_user_info(user_update: UserResponse, user: User = Depends(get_current
 #      888      888 888ooo888  888  888ooo888   888   888ooo888
 #      888     d88' 888    .o  888  888    .o   888 . 888    .o
 #     o888bood8P'   `Y8bod8P' o888o `Y8bod8P'   "888" `Y8bod8P'
-# 사용자 삭제
-# 그저 삭제하는 것이 아니라 개인정보 및 사용정보들은 
-# 다른 테이블로 이동을 시켜줘야하지않는지?
-# 이런 부분은 어떻게 구현할지 고민해보아야함
-# user id 말고 다른 정보로 삭제를 할 수 있어야하지 않을까?
+
 @handle_exceptions
 @router.delete("/me")
 def delete_user(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -99,8 +97,6 @@ def reset_password(new_password: str, user: User = Depends(get_current_user), db
 #      888       o 888   888 888   .o8 d8(  888    888 .  888  888   888  888   888 
 #     o888ooooood8 `Y8bod8P' `Y8bod8P' `Y888""8o   "888" o888o `Y8bod8P' o888o o888o
 
-### 경도와 위도 정보 업데이트 API ###
-
 @handle_exceptions
 @router.get("/me/location")
 def get_location(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -116,7 +112,15 @@ def update_location(latitude: float, longitude: float, user: User = Depends(get_
     db.refresh(user)
     return {"message": "위치 정보를 업데이트했습니다."}
 
-### 유저 프로필 API ###
+#         .o.        .o8        .o8                        ooooooooo.                       .o88o.  o8o  oooo           
+#        .888.      "888       "888                        `888   `Y88.                     888 `"  `"'  `888           
+#       .8"888.      888oooo.   888oooo.  oooo    ooo       888   .d88' oooo d8b  .ooooo.  o888oo  oooo   888   .ooooo. 
+#      .8' `888.     d88' `88b  d88' `88b  `88.  .8'        888ooo88P'  `888""8P d88' `88b  888    `888   888  d88' `88b
+#     .88ooo8888.    888   888  888   888   `88..8'         888          888     888   888  888     888   888  888ooo888
+#    .8'     `888.   888   888  888   888    `888'          888          888     888   888  888     888   888  888    .o
+#   o88o     o8888o  `Y8bod8P'  `Y8bod8P'     .8'          o888o        d888b    `Y8bod8P' o888o   o888o o888o `Y8bod8P'
+#                                         .o..P'                                                                        
+#                                         `Y8P'                                                                         
 
 @handle_exceptions
 @router.get("/me/ai_profile")
