@@ -16,7 +16,7 @@ from openai import OpenAIError
 
 from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage, User
 from database import get_db, handle_exceptions
-from functions import getUltraSrtFcst
+from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind
 from utils.config import variables
 from utils import token_manager, get_current_user
 
@@ -221,15 +221,22 @@ class EventHandler(AssistantEventHandler):
         tool_outputs = []
 
         for tool in data.required_action.submit_tool_outputs.tool_calls:
+            tool_arguments = json.loads(tool.function.arguments) if tool.function.arguments else {}
             if tool.function.name == "getUltraSrtFcst":
-                result = getUltraSrtFcst()
+                result = getUltraSrtFcst(self.current_run.thread_id)
+            if tool.function.name == "register_medication_remind":
+                result = register_medication_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "register_hospital_remind":
+                result = register_hospital_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+
+
+
             if isinstance(result, dict):
                 result = json.dumps(result, ensure_ascii=False)
             elif not isinstance(result, str):
-                result = str(result)    
+                result = str(result)
             tool_outputs.append({"tool_call_id" : tool.id, "output": result})
         self.submit_tool_outputs(tool_outputs, run_id)
-
     @override
     def submit_tool_outputs(self, tool_outputs, run_id):
         with client.beta.threads.runs.submit_tool_outputs_stream(

@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from models import User, AssistantThread
 from datetime import datetime, timedelta
 import json
 import os
@@ -9,9 +11,6 @@ from utils.config import variables
 
 weather_key = variables.WEATHER_KEY
 
-# 로컬 DB 가 아닌 DB서버에 연결해서 사용할 수 있도록 해야할 듯함
-# 하지만 cache 파일을 구성하는 것이므로 그럴 필요가 있을 것인지?
-# 어떻게 할지 정하면 좋을듯함
 try:
     weather_db = sqlite3.connect('database/location_grid.db')
 except sqlite3.Error as e:
@@ -62,7 +61,6 @@ def parseWeatherData(items):
             weather_summaries[category] = {}
         weather_summaries[category][datetime_key] = value
     
-    # 체감온도 계산 및 추가
     for datetime_key in weather_summaries.get('TMP', {}):
         temp = float(weather_summaries['TMP'][datetime_key])
         wind_speed = float(weather_summaries.get('WSD', {}).get(datetime_key, 0))
@@ -85,9 +83,15 @@ def getRoundedTime(time):
         return time.replace(minute=30, second=0, microsecond=0)
     else:
         return time.replace(minute=0, second=0, microsecond=0)
-def getUltraSrtFcst(thread_id = None):
-    latitude = 36.0218380386815 # >> 임시 변수, 추후에 DB의 Thread.id를 알아내고 Thread.id가 등록된 User의 가장 최근 위치를 입력하도록 할 것임.
-    longitude = 119.35571517736997
+def getUltraSrtFcst(thread_id = None, db: Session = None):
+    user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+    
+    if user is None or user.latitude is None or user.longitude is None:
+        return returnFormat("105", "사용자 위치 정보가 없습니다.")
+    
+    latitude = user.latitude
+    longitude = user.longitude
+    
     def haversine(lat1, lon1, lat2, lon2):
         # Haversine 공식을 이용한 거리 계산
         R = 6371.0
