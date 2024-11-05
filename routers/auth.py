@@ -1,13 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Header, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse, get_user_by_id
+from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse
 from utils import verify_password, is_valid_phone, is_valid_email, validate_password_strength, hash_password
 from database import get_db, handle_exceptions
-from datetime import datetime, timedelta
-from jose import jwt, ExpiredSignatureError, JWTError
-from utils.config import variables
+from datetime import datetime
 from utils import token_manager, get_current_user
 import uuid
 

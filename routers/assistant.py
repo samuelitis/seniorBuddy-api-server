@@ -1,24 +1,19 @@
-import os, json
+import json
 from typing import Any
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from asyncio import TimeoutError, wait_for
-from openai import AsyncAssistantEventHandler, AsyncOpenAI, AssistantEventHandler, OpenAI
-from openai.types.beta.threads import Text, TextDelta
-from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
-from openai.types.beta.threads import Message, MessageDelta
-from openai.types.beta.threads.runs import ToolCall, RunStep
-from openai.types.beta import AssistantStreamEvent
+from openai import AssistantEventHandler, OpenAI
+from openai.types.beta.threads import Message
 from openai import OpenAIError
 
-from models import AssistantThreadCreate, AssistantMessageCreate, AssistantThread, AssistantMessage, User
+from models import  AssistantMessageCreate, AssistantThread, AssistantMessage, User
 from database import get_db, handle_exceptions
-from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind
+from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind, getHospBasisList
 from utils.config import variables
-from utils import token_manager, get_current_user
+from utils import get_current_user
 
 __INSTRUCTIONS__ = """
 당신은 어르신을 돕는 시니어 도우미입니다. 
@@ -82,7 +77,7 @@ async def delete_assistant_thread(request: Request, user: User = Depends(get_cur
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
         raise HTTPException(status_code=404, detail="쓰레드를 찾을 수 없습니다.")
-    
+    client.beta.threads.delete(thread.thread_id)
     db.delete(thread)
     db.commit()
     return {"message": "쓰레드를 삭제했습니다."}
@@ -228,7 +223,8 @@ class EventHandler(AssistantEventHandler):
                 result = register_medication_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
             if tool.function.name == "register_hospital_remind":
                 result = register_hospital_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
-
+            if tool.function.name == "getHospBasisList":
+                result = getHospBasisList(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
 
 
             if isinstance(result, dict):

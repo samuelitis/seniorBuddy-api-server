@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from models import UserResponse, get_user_by_id, User
 from database import get_db, handle_exceptions
 from datetime import datetime
-import uuid
-from utils import hash_password, is_valid_phone, is_valid_email, get_current_user, token_manager
+from utils import hash_password, is_valid_phone, is_valid_email, get_current_user
 
 router = APIRouter()
 ### 사용자 관리 API ###

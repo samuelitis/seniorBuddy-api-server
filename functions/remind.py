@@ -1,15 +1,8 @@
-from functools import wraps
-from urllib import request
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
-from pydantic import BaseModel
 from datetime import time, datetime, timedelta
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from database import get_db, handle_exceptions
-from models import User, HospitalReminder, MedicationReminder, MedicationReminderCreate, HospitalReminderCreate, MedicationReminderResponse, HospitalReminderResponse, AssistantThread
+from models import User, HospitalReminder, MedicationReminder, AssistantThread
 
 def register_medication_remind(db: Session, thread_id, content: str, start_date: int, repeat_day: str, frequency: str, additional_info: str):
     try:
