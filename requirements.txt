@@ -14,3 +14,4 @@ python-jose
 mysql-connector-python
 pydantic[email]
 bcrypt
+xmltodict
