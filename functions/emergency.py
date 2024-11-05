@@ -3,8 +3,6 @@ import xmltodict
 from sqlalchemy.orm import Session
 from models import User, AssistantThread
 from utils.config import variables
-from dotenv import load_dotenv
-load_dotenv()
 
 service_key = variables.KDATA_KEY
 
