@@ -2,7 +2,7 @@ from datetime import time, datetime, timedelta
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from models import User, HospitalReminder, MedicationReminder, AssistantThread
+from models import User, HospitalReminder, MedicationReminder, AssistantThread, UserSchedule, UserScheduleResponse
 
 def register_medication_remind(db: Session, thread_id, content: str, start_date: int, repeat_day: str, frequency: str, additional_info: str):
     try:
@@ -69,6 +69,53 @@ def register_hospital_remind(db: Session, thread_id, content: str, year: int=dat
         db.refresh(new_reminder)
         return new_reminder
     
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+    
+# 식사시간 등록
+def set_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
+    try:
+        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+        user_id = user.user_id
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+        
+        new_schedule = UserSchedule(
+            user_id = user_id,
+            meal_time = meal_time,
+            meal_type = meal_type
+        )
+        db.add(new_schedule)
+        db.commit()
+        db.refresh(new_schedule)
+        return new_schedule
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
+def update_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
+    try:
+        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+        user_id = user.user_id
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+        
+        schedule = db.query(UserSchedule).filter(UserSchedule.user_id == user_id, UserSchedule.meal_time == meal_time).first()
+        if schedule is None:
+            return {"status": "failed", "message": "해당 시간의 식사 정보가 없습니다."}
+        
+        schedule.meal_type = meal_type
+        db.commit()
+        return schedule
     except SQLAlchemyError as e:
         db.rollback()
         return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}

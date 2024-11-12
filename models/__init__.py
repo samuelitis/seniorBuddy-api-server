@@ -16,6 +16,8 @@ from .models import (
     HospitalReminder,
     MedicationReminderResponse,
     HospitalReminderResponse,
+    UserSchedule,
+    UserScheduleResponse,
 )
 
 from .user_crud import (

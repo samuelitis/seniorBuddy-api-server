@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 from database import get_db, handle_exceptions
-from models import User, HospitalReminder, MedicationReminder, MedicationReminderCreate, HospitalReminderCreate, MedicationReminderResponse, HospitalReminderResponse
+from models import User, HospitalReminder, MedicationReminder, MedicationReminderCreate, HospitalReminderCreate, MedicationReminderResponse, HospitalReminderResponse, UserSchedule
 from utils import get_current_user
 
 import json
@@ -149,3 +149,32 @@ async def delete_hospital_reminder(reminder_id: int, user: User = Depends(get_cu
     db.delete(reminder)
     db.commit()
     return {"detail": "Reminder deleted successfully"}
+
+@handle_exceptions
+@router.get("/")
+def get_user_schedules(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # 복약 시간, 병원 예약 등 알림 시간순으로 반환
+    result = []
+    user_id = user.user_id
+    user_schedules = db.query(UserSchedule).filter(UserSchedule.user_id == user_id).all()
+    hospital_reminders = db.query(HospitalReminder).filter(HospitalReminder.user_id == user_id).all()
+    medicine_reminders = db.query(MedicationReminder).filter(MedicationReminder.user_id == user_id).all()
+    for reminder in medicine_reminders:
+        if "아침식전" in reminder.frequency:
+            reminder.time = user_schedules.breakfast_time - timedelta(minutes=30)
+        elif "아침식후" in reminder.frequency:
+            reminder.time = user_schedules.breakfast_time + timedelta(minutes=30)
+        elif "점심식전" in reminder.frequency:
+            reminder.time = user_schedules.lunch_time - timedelta(minutes=30)
+        elif "점심식후" in reminder.frequency:
+            reminder.time = user_schedules.lunch_time + timedelta(minutes=30)
+        elif "저녁식전" in reminder.frequency:
+            reminder.time = user_schedules.dinner_time - timedelta(minutes=30)
+        elif "저녁식후" in reminder.frequency:
+            reminder.time = user_schedules.dinner_time + timedelta(minutes=30)
+        elif "취침전" in reminder.frequency:
+            reminder.time = user_schedules.bedtime_time - timedelta(minutes=30)
+        else:
+            pass
+        result.append(reminder)
+    return result

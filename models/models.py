@@ -1,7 +1,7 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time, JSON
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, TEXT, Date, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import Index
-from pydantic import BaseModel, Field, validator, Json
+from pydantic import BaseModel, validator
 from typing import Optional, List
 from database import Base
 from datetime import datetime, date as dt_date, time as dt_time, datetime as dt_datetime
@@ -34,6 +34,19 @@ class User(Base):
         if 'phone_number' in values and v is None and values['phone_number'] is None:
             raise ValueError('이메일 혹은 휴대폰 번호 둘중 하나는 입력되어야합니다.')
         return v
+class UserSchedule(Base):
+    __tablename__ = "user_schedule"
+
+    user_id = Column(Integer, ForeignKey('users.user_id', ondelete="CASCADE"), primary_key=True, index=True)
+    breakfast_time = Column(Time, nullable=True)
+    lunch_time = Column(Time, nullable=True)
+    dinner_time = Column(Time, nullable=True)
+    bedtime_time = Column(Time, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="user_schedule")
+
 # AssistantThreads 테이블 모델 정의
 class AssistantThread(Base):
     __tablename__ = "assistant_threads"
@@ -221,5 +234,22 @@ class HospitalReminderResponse(BaseModel):
                 "content": "경산 하양읍 미르치과 예약",
                 "start_date": "2024-11-24 15:00:00",
                 "additional_info": "양치하기",
+            }
+        }
+
+        
+class UserScheduleResponse(BaseModel):
+    breakfast_time: Optional[dt_time]
+    lunch_time: Optional[dt_time]
+    dinner_time: Optional[dt_time]
+    bedtime_time: Optional[dt_time]
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "breakfast_time": "08:00:00",
+                "lunch_time": "13:00:00",
+                "dinner_time": "18:00:00",
+                "bedtime_time": "22:00:00",
             }
         }

@@ -201,3 +201,6 @@ def getHospBasisList(dgsbjtCd, radius=30000, thread_id = None, db: Session = Non
     
     except Exception as e:
         return returnFormat("102", f"Failed to parse XML response: {str(e)}")
+
+# 응급상황에서는 119로 전화하게끔
+# 
