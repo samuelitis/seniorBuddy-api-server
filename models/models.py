@@ -28,6 +28,7 @@ class User(Base):
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
     medication_reminders = relationship("MedicationReminder", back_populates="user")
     hospital_reminders = relationship("HospitalReminder", back_populates="user")
+    user_schedule = relationship("UserSchedule", back_populates="user", uselist=False)
  
     @validator('email')
     def check_contact(cls, v, values, **kwargs):
