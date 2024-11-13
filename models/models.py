@@ -24,6 +24,7 @@ class User(Base):
     longitude = Column(Float, nullable=True)
     last_update_location = Column(DateTime, nullable=True)
     ai_profile = Column(Integer, default=1)
+    fcm_token = Column(String(255), nullable=True)
 
     thread = relationship("AssistantThread", back_populates="user", uselist=False)
     medication_reminders = relationship("MedicationReminder", back_populates="user")
@@ -167,19 +168,20 @@ class TokenResponse(BaseModel):
 class LoginData(BaseModel):
     identifier: str  # 이메일 또는 전화번호 그냥 문자열로 받음
     password: str
+    fcm_token: Optional[str] = None
 
-
-    class Config:
+    class Config: 
         json_schema_extra = {
             "example": {
                 "identifier": "user@example.com or 010-1234-5678",
-                "password": "password123"
+                "password": "password123",
+                "fcm_token": "fcm_token"
             }
         }
 class MedicationReminderCreate(BaseModel):
     content: str
     start_date: dt_date
-    repeat_day: int
+    day: int
     frequency: List[str] = ["아침식후", "점심식후", "저녁식후"]
     additional_info: Optional[str] = None
     class Config:

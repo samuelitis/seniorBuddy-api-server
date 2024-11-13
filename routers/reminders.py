@@ -27,7 +27,7 @@ async def create_medication_reminder(remind: MedicationReminderCreate, user: Use
         user_id = user_id,
         content = remind.content,
         start_date = remind.start_date,
-        end_date = remind.start_date + timedelta(days=remind.repeat_day),
+        end_date = remind.start_date + timedelta(days=remind.day),
         dose_morning = "기상" in remind.frequency,
         dose_breakfast_before = "아침식전" in remind.frequency,
         dose_breakfast_after = "아침식후" in remind.frequency,

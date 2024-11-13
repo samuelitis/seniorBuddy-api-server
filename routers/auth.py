@@ -96,7 +96,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginData, db: Session = Depends(get_db)):
     user = None
-
+    print(data.fcm_token)
     if is_valid_email(data.identifier):     # 이메일로 로그인 시
         user = db.query(User).filter(User.email == data.identifier).first()
     elif is_valid_phone(data.identifier):   # 전화번호로 로그인 시
@@ -121,7 +121,14 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     token_manager.store_refresh_token(db, refresh_token, user.user_id)
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
-
+def store_fcm_token(user: User, fcm_token: str, db: Session):
+    try:
+        user.fcm_token = fcm_token
+        db.commit()
+        db.refresh(user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="FCM 토큰 저장 중 오류가 발생했습니다")
 #    ooooooooo.              .o88o.                             oooo       
 #    `888   `Y88.            888 `"                             `888       
 #     888   .d88'  .ooooo.  o888oo  oooo d8b  .ooooo.   .oooo.o  888 .oo.  
