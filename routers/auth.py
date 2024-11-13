@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from urllib.parse import unquote
+
 from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse
 from utils import verify_password, is_valid_phone, is_valid_email, validate_password_strength, hash_password
 from database import get_db, handle_exceptions
@@ -108,6 +110,9 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다")
 
+    if data.fcm_token is not None:
+        store_fcm_token(user, data.fcm_token, db)
+
     # 기존 리프레시 토큰 무효화
     existing_refresh_token = db.query(RefreshToken).filter(RefreshToken.user_id == user.user_id).first()
     if existing_refresh_token:
@@ -117,15 +122,13 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     # 새로운 액세스 토큰 및 리프레시 토큰 발급
     access_token = token_manager.create_access_token(user.user_id)
     refresh_token = token_manager.create_refresh_token(user.user_id)
-    if data.fcm_token is not None:
-        store_fcm_token(user, data.fcm_token, db)
     # 리프레시 토큰 저장
     token_manager.store_refresh_token(db, refresh_token, user.user_id)
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 def store_fcm_token(user: User, fcm_token: str, db: Session):
     try:
-        user.fcm_token = fcm_token
+        user.fcm_token = unquote(fcm_token)
         db.commit()
         db.refresh(user)
     except Exception as e:
