@@ -125,6 +125,7 @@ class UserCreate(BaseModel):
     user_type: str
     phone_number: Optional[str] = None
     email: Optional[str] = None
+    fcm_token: Optional[str] = None
 
     class Config:
         from_attributes = True

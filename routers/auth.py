@@ -71,6 +71,8 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     refresh_token = token_manager.create_refresh_token(new_user.user_id)
 
     token_manager.store_refresh_token(db, refresh_token, new_user.user_id)
+    if user.fcm_token is not None:
+        store_fcm_token(new_user, user.fcm_token, db)
 
     return RegisterResponse(
         user_real_name=new_user.user_real_name,
@@ -115,7 +117,8 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     # 새로운 액세스 토큰 및 리프레시 토큰 발급
     access_token = token_manager.create_access_token(user.user_id)
     refresh_token = token_manager.create_refresh_token(user.user_id)
-
+    if data.fcm_token is not None:
+        store_fcm_token(user, data.fcm_token, db)
     # 리프레시 토큰 저장
     token_manager.store_refresh_token(db, refresh_token, user.user_id)
 
