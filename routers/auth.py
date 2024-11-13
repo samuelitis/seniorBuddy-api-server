@@ -96,7 +96,6 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(data: LoginData, db: Session = Depends(get_db)):
     user = None
-    print(data.fcm_token)
     if is_valid_email(data.identifier):     # 이메일로 로그인 시
         user = db.query(User).filter(User.email == data.identifier).first()
     elif is_valid_phone(data.identifier):   # 전화번호로 로그인 시
