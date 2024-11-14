@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException, Header, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from urllib.parse import unquote
-
-from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse
+from sqlalchemy.exc import SQLAlchemyError
+from models import RefreshToken, User, UserCreate, UserResponse, TokenResponse, LoginData, RegisterResponse, UserSchedule
 from utils import verify_password, is_valid_phone, is_valid_email, validate_password_strength, hash_password
 from database import get_db, handle_exceptions
-from datetime import datetime
+from datetime import datetime, time
 from utils import token_manager, get_current_user
 import uuid
 
@@ -126,6 +126,36 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     token_manager.store_refresh_token(db, refresh_token, user.user_id)
 
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+
+
+def init_meal_time(db: Session, user_id):
+    try:
+        user = db.query(User).filter(User.user_id == user_id).first()
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+        
+        if db.query(UserSchedule).filter(UserSchedule.user_id == user_id).first():
+            return {"status": "failed", "message": "이미 식사시간이 등록되어 있습니다."}
+        
+        new_schedule = UserSchedule(
+            user_id = user_id,
+            breakfast_time = time(8, 0),
+            lunch_time = time(12, 0),
+            dinner_time = time(18, 0),
+            bedtime = time(22, 0)
+        )
+        db.add(new_schedule)
+        db.commit()
+        db.refresh(new_schedule)
+        return new_schedule
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
 def store_fcm_token(user: User, fcm_token: str, db: Session):
     try:
         user.fcm_token = unquote(fcm_token)
@@ -170,7 +200,7 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
     valid_refresh_token = token_manager.get_valid_refresh_token(db, refresh_token)
     
     if valid_refresh_token.user_id != user.user_id:
-        raise HTTPException(status_code=401, detail="리프레시 토큰이 일치하지 않습니다")
+        raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
 
     new_access_token = token_manager.create_access_token(user.user_id)
     new_refresh_token = token_manager.create_refresh_token(user.user_id)
@@ -178,7 +208,6 @@ def refresh(access_token: str = Header(None), refresh_token: str = Header(None),
     token_manager.del_refresh_token(db, refresh_token)
     
     token_manager.store_refresh_token(db, new_refresh_token, user.user_id)
-
     return {"access_token": new_access_token, "refresh_token": new_refresh_token}
 
 

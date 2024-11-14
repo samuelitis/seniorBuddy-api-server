@@ -54,10 +54,10 @@ class TokenManager:
                 payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm], options={"verify_exp": False})
                 return payload
             else:
-                raise HTTPException(status_code=401, detail="Access Token has expired")
+                raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
 
         except JWTError as e:
-            raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+            raise HTTPException(status_code=401, detail=f"토근이 유효하지 않습니다")
 
     def store_refresh_token(self, db: Session, token: str, user_id: int, expires_at: datetime = None):
         """
@@ -82,10 +82,10 @@ class TokenManager:
         """
         refresh_token = db.query(RefreshToken).filter(RefreshToken.token == token).first()
         if not refresh_token:
-            raise HTTPException(status_code=401, detail="Refresh token not found")
+            raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
         
         if refresh_token.expires_at < datetime.utcnow():
-            raise HTTPException(status_code=401, detail="Refresh token has expired")
+            raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
         
         return refresh_token
     
@@ -104,28 +104,28 @@ authorization_scheme = APIKeyHeader(name="Authorization")
 
 def get_current_user(authorization: str = Depends(authorization_scheme), db: Session = Depends(get_db)):
     if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization token missing")
+        raise HTTPException(status_code=400, detail="인증 정보가 없습니다")
     if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
+        raise HTTPException(status_code=400, detail="Bearer 토큰이 필요합니다")
 
     token = authorization.split(" ")[1]
     
     try:
         payload = token_manager.decode_token(token)
         if not payload:
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
 
         user_id = payload.get("sub")
         if not user_id:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="사용자 정보가 없습니다")
         
         user = get_user_by_id(db, user_id)
         if not user:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise HTTPException(status_code=404, detail="사용자 정보가 없습니다")
         
         return user
     except ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Access Token has expired")
+        raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
 
     except Exception as e: # 임시 예외처리, 발생가능한 예외처리 추가 필요
-        raise HTTPException(status_code=401, detail=f"Exception occurred: {e}")
+        raise HTTPException(status_code=403, detail=f"예상치 못한 오류가 발생했습니다: {str(e)}")

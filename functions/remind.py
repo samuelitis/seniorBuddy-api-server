@@ -106,6 +106,7 @@ def set_default_meal_time(db: Session, thread_id):
         db.rollback()
         return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
 
+
 def update_meal_time(db: Session, thread_id, eaten: bool, meal_type: str, minutes: int = 10):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
