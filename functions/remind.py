@@ -77,7 +77,7 @@ def register_hospital_remind(db: Session, thread_id, content: str, year: int=dat
         return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
     
 # 식사시간 등록
-def set_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
+def set_default_meal_time(db: Session, thread_id):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
         user_id = user.user_id
@@ -85,10 +85,15 @@ def set_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
         if user_id is None:
             return {"status": "failed", "message": "사용자 정보가 없습니다."}
         
+        if db.query(UserSchedule).filter(UserSchedule.user_id == user_id).first():
+            return {"status": "failed", "message": "이미 식사시간이 등록되어 있습니다."}
+        
         new_schedule = UserSchedule(
             user_id = user_id,
-            meal_time = meal_time,
-            meal_type = meal_type
+            breakfast_time = time(8, 0),
+            lunch_time = time(12, 0),
+            dinner_time = time(18, 0),
+            bedtime = time(22, 0)
         )
         db.add(new_schedule)
         db.commit()
@@ -101,7 +106,7 @@ def set_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
         db.rollback()
         return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
 
-def update_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
+def update_meal_time(db: Session, thread_id, eaten: bool, meal_type: str, minutes: int = 10):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
         user_id = user.user_id
@@ -109,12 +114,36 @@ def update_meal_time(db: Session, thread_id, meal_time: str, meal_type: str):
         if user_id is None:
             return {"status": "failed", "message": "사용자 정보가 없습니다."}
         
-        schedule = db.query(UserSchedule).filter(UserSchedule.user_id == user_id, UserSchedule.meal_time == meal_time).first()
+        schedule = db.query(UserSchedule).filter(UserSchedule.user_id == user_id).first()
         if schedule is None:
-            return {"status": "failed", "message": "해당 시간의 식사 정보가 없습니다."}
+            set_default_meal_time(db, thread_id)
+            return {"status": "failed", "message": "식사시간이 등록되어 있지 않아 기본값으로 설정되었습니다."}
         
-        schedule.meal_type = meal_type
+        # 식사 여부에 따라 meal_time 조정
+        if eaten:
+            # 10분 낮추기
+            if meal_type == "breakfast":
+                schedule.breakfast_time = (schedule.breakfast_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
+            elif meal_type == "lunch":
+                schedule.lunch_time = (schedule.lunch_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
+            elif meal_type == "dinner":
+                schedule.dinner_time = (schedule.dinner_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
+            elif meal_type == "bedtime":
+                schedule.bedtime_time = (schedule.bedtime_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
+        else:
+            # 10분 추가하기
+            if meal_type == "breakfast":
+                schedule.breakfast_time = (schedule.breakfast_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
+            elif meal_type == "lunch":
+                schedule.lunch_time = (schedule.lunch_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
+            elif meal_type == "dinner":
+                schedule.dinner_time = (schedule.dinner_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
+            elif meal_type == "bedtime":
+                schedule.bedtime = (schedule.bedtime.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
+
+        schedule.updated_at = datetime.now()
         db.commit()
+        db.refresh(schedule)
         return schedule
     except SQLAlchemyError as e:
         db.rollback()

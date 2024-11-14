@@ -60,8 +60,6 @@ async def create_assistant_thread(user_id: int, db: Session = Depends(get_db)):
     
 
 # 특정 사용자의 스레드 조회
-# id 말고 엑세스토큰으로 찾아야하지 않을까?
-# 
 @handle_exceptions
 @router.get("/threads")
 async def get_threads_by_user(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

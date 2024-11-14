@@ -36,10 +36,25 @@ class User(Base):
         if 'phone_number' in values and v is None and values['phone_number'] is None:
             raise ValueError('이메일 혹은 휴대폰 번호 둘중 하나는 입력되어야합니다.')
         return v
+    
+class ScheduledMessage(Base):
+    __tablename__ = "scheduled_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    title = Column(TEXT, nullable=False)
+    content = Column(TEXT, nullable=False)
+    scheduled_time = Column(DateTime, nullable=False)
+    status = Column(String(20), default="pending")  # pending, sent, failed
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="scheduled_messages")
+
 class UserSchedule(Base):
     __tablename__ = "user_schedule"
 
     user_id = Column(Integer, ForeignKey('users.user_id', ondelete="CASCADE"), primary_key=True, index=True)
+    morning_time = Column(Time, nullable=True)
     breakfast_time = Column(Time, nullable=True)
     lunch_time = Column(Time, nullable=True)
     dinner_time = Column(Time, nullable=True)
