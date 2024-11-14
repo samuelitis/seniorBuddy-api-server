@@ -30,7 +30,8 @@ class User(Base):
     medication_reminders = relationship("MedicationReminder", back_populates="user")
     hospital_reminders = relationship("HospitalReminder", back_populates="user")
     user_schedule = relationship("UserSchedule", back_populates="user", uselist=False)
- 
+    scheduled_messages = relationship("ScheduledMessage", back_populates="user")
+
     @validator('email')
     def check_contact(cls, v, values, **kwargs):
         if 'phone_number' in values and v is None and values['phone_number'] is None:
