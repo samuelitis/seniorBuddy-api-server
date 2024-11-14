@@ -18,7 +18,16 @@ router = APIRouter()
 #     8  `888'   888  888ooo888 888   888   888  888        .oP"888    888    888  888   888  888   888 
 #     8    Y     888  888    .o 888   888   888  888   .o8 d8(  888    888 .  888  888   888  888   888 
 #    o8o        o888o `Y8bod8P' `Y8bod88P" o888o `Y8bod8P' `Y888""8o   "888" o888o `Y8bod8P' o888o o888o
-
+day_switch = {
+    "3일": 3,
+    "7일": 7,
+    "2주": 14,
+    "1개월": 30,
+    "2개월": 60,
+    "3개월": 90,
+    "1년": 365,
+    "1년 이상": 365
+}
 @handle_exceptions
 @router.post("/medication")
 async def create_medication_reminder(remind: MedicationReminderCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -27,7 +36,7 @@ async def create_medication_reminder(remind: MedicationReminderCreate, user: Use
         user_id = user_id,
         content = remind.content,
         start_date = remind.start_date,
-        end_date = remind.start_date + timedelta(days=remind.day),
+        end_date = remind.start_date + timedelta(days=day_switch.get(remind.day, 0)),
         dose_morning = "기상" in remind.frequency,
         dose_breakfast_before = "아침식전" in remind.frequency,
         dose_breakfast_after = "아침식후" in remind.frequency,
@@ -61,8 +70,8 @@ async def update_medication_reminder(reminder_id: int, remind: MedicationReminde
         reminder.content = remind.content
     if remind.start_date is not None:
         reminder.start_date = remind.start_date
-    if remind.repeat_day is not None:
-        reminder.end_date = remind.start_date + timedelta(days=remind.repeat_day)
+    if remind.day is not None:
+        reminder.end_date = remind.start_date + timedelta(days=day_switch.get(remind.day, 0)),
     if remind.frequency is not None:
         reminder.dose_morning = "기상" in remind.frequency
         reminder.dose_breakfast_before = "아침식전" in remind.frequency

@@ -198,7 +198,7 @@ class LoginData(BaseModel):
 class MedicationReminderCreate(BaseModel):
     content: str
     start_date: dt_date
-    day: int
+    day: str
     frequency: List[str] = ["아침식후", "점심식후", "저녁식후"]
     additional_info: Optional[str] = None
     class Config:
@@ -206,9 +206,10 @@ class MedicationReminderCreate(BaseModel):
         json_schema_extra = {
             "example": {
                 "content": "감기약",
+                "day": "7일",
+                # 3일 7일 2주 1개월 2개월 3개월 1년 1년 이상
                 "start_date": "2024-10-24",
-                "day": 7,
-                "frequency": ["기상", "아침식전", "아침식후", "점심식전", "점심식후", "저녁시전", "저녁식후", "취침전"],
+                "frequency": ["기상", "아침식전", "아침식후", "점심식전", "점심식후", "저녁식전", "저녁식후", "취침전"],
                 "additional_info": "물많이 먹기",
             }
         }
@@ -221,7 +222,7 @@ class HospitalReminderCreate(BaseModel):
         json_schema_extra = {
             "example": {
                 "content": "경산 하양읍 미르치과 예약",
-                "start_date": "2024-11-24 15:00:00",
+                "start_date_time": "2024-11-24 15:00:00",
                 "additional_info": "양치하기",
             }
         }
@@ -229,7 +230,7 @@ class HospitalReminderCreate(BaseModel):
 class MedicationReminderResponse(BaseModel):
     content: Optional[str]
     start_date: Optional[dt_date]
-    repeat_day: Optional[int]
+    day: Optional[str]
     frequency: Optional[List[str]]
     additional_info: Optional[str]
     class Config:
@@ -238,8 +239,9 @@ class MedicationReminderResponse(BaseModel):
             "example": {
                 "content": "감기약",
                 "start_date": "2024-10-24",
-                "day": 7,
-                "frequency": ["기상", "아침식전", "아침식후", "점심식전", "점심식후", "저녁시전", "저녁식후", "취침전"],
+                "day": "7일",
+                # 3일 7일 2주 1개월 2개월 3개월 1년 1년 이상
+                "frequency": ["기상", "아침식전", "아침식후", "점심식전", "점심식후", "저녁식전", "저녁식후", "취침전"],
                 "additional_info": "물많이 먹기",
             }
         }
@@ -252,7 +254,7 @@ class HospitalReminderResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "content": "경산 하양읍 미르치과 예약",
-                "start_date": "2024-11-24 15:00:00",
+                "start_date_time": "2024-11-24 15:00:00",
                 "additional_info": "양치하기",
             }
         }

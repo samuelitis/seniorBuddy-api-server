@@ -3,10 +3,11 @@ from fastapi import Depends, HTTPException
 from fastapi.security import APIKeyHeader
 from jose import jwt, ExpiredSignatureError, JWTError
 from sqlalchemy.orm import Session
-from models import RefreshToken
 from utils.config import variables
 from models import get_user_by_id
 from database import get_db
+
+from models import RefreshToken
 
 # 헷갈려서 매니지먼트 클래스로 변경
 # 또한 토큰에 expire 날짜 정보도 포함하였음
