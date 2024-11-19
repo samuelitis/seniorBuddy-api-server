@@ -68,7 +68,7 @@ class UserSchedule(Base):
 # AssistantThreads 테이블 모델 정의
 class AssistantThread(Base):
     __tablename__ = "assistant_threads"
-
+    
     thread_id = Column(String(36), primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.user_id', ondelete="CASCADE"), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

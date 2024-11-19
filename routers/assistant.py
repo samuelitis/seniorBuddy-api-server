@@ -11,7 +11,7 @@ from openai import OpenAIError
 
 from models import  AssistantMessageCreate, AssistantThread, AssistantMessage, User
 from database import get_db, handle_exceptions
-from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind, getHospBasisList
+from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind, getHospBasisList, remove_medication_remind, remove_hospital_remind, get_medication_remind, get_hospital_remind, update_meal_time
 from utils.config import variables
 from utils import get_current_user
 
@@ -135,9 +135,10 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
         event_handler=EventHandler(db, thread.thread_id),
     ) as stream:
         stream.until_done()
-    return {"status": "Message created and executed", "content": new_message.content}
+    latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(desc(AssistantMessage.created_at)).first()
 
-# 특정 스레드의 메세지 조회
+    return {"status": "Message created and executed", "content": latest_message.content}
+
 @handle_exceptions
 @router.get("/messages")
 async def get_messages_by_thread(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -187,7 +188,7 @@ class EventHandler(AssistantEventHandler):
                 try:
                     self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": status})
                     self.db.commit()
-                    print(f"Thread status updated: {status}")
+                    # print(f"Thread status updated: {status}")
                 except SQLAlchemyError as e:
                     self.db.rollback()
                     raise HTTPException(status_code=500, detail=f"메세지 상태 업데이트 실패: {str(e)}")
@@ -200,10 +201,21 @@ class EventHandler(AssistantEventHandler):
         if event.event == 'thread.run.requires_action':
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
-        if event.event == 'thread.run.cancelled':
+        elif event.event == 'thread.run.cancelled':
             raise HTTPException(status_code=400, detail="쓰레드가 취소되었습니다.")
-            # 어떤 상태에서 cancle이 발생하는지 확인해야함.
-            # 내부적으로 어떻게 처리해야하는지
+        elif event.event == 'thread.run.created':
+            new_message = AssistantMessage(
+                thread_id=self.thread_id,
+                sender_type="assistant",
+                content="",
+                created_at=datetime.utcnow()
+            )
+            self.db.add(new_message)
+            self.db.commit()
+            self.db.refresh(new_message)
+        else:
+            pass
+        
     @override
     def on_tool_call_created(self, tool_call):
         self.function_name = tool_call.function.name
@@ -214,6 +226,7 @@ class EventHandler(AssistantEventHandler):
         tool_outputs = []
 
         for tool in data.required_action.submit_tool_outputs.tool_calls:
+            print(tool.function.name)
             tool_arguments = json.loads(tool.function.arguments) if tool.function.arguments else {}
             if tool.function.name == "getUltraSrtFcst":
                 result = getUltraSrtFcst(self.current_run.thread_id)
@@ -223,6 +236,16 @@ class EventHandler(AssistantEventHandler):
                 result = register_hospital_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
             if tool.function.name == "getHospBasisList":
                 result = getHospBasisList(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "get_medication_remind":
+                result = get_medication_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "get_hospital_remind":
+                result = get_hospital_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "remove_medication_remind":
+                result = remove_medication_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "remove_hospital_remind":
+                result = remove_hospital_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "update_meal_time":
+                result = update_meal_time(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
 
 
             if isinstance(result, dict):

@@ -124,7 +124,7 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     refresh_token = token_manager.create_refresh_token(user.user_id)
     # 리프레시 토큰 저장
     token_manager.store_refresh_token(db, refresh_token, user.user_id)
-
+    init_meal_time(db, user.user_id)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -139,7 +139,8 @@ def init_meal_time(db: Session, user_id):
             return {"status": "failed", "message": "이미 식사시간이 등록되어 있습니다."}
         
         new_schedule = UserSchedule(
-            user_id = user_id,
+            user_id = user.user_id,
+            morning_time = time(7, 0),
             breakfast_time = time(8, 0),
             lunch_time = time(12, 0),
             dinner_time = time(18, 0),

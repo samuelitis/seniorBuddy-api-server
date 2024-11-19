@@ -42,6 +42,50 @@ def register_medication_remind(db: Session, thread_id, content: str, start_date:
         db.rollback()
         return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
     
+def remove_medication_remind(db: Session, thread_id, reminder_id: int):
+    try:
+        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+        user_id = user.user_id
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+
+        # db에서 조회
+        reminder = db.query(MedicationReminder).filter(MedicationReminder.user_id == user_id, MedicationReminder.reminder_id == reminder_id).first()        
+
+        #db에서 삭제
+        db.delete(reminder)
+        db.commit()
+
+        return {"status": "success", "message": "약 복용 알림이 삭제되었습니다."}
+    
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
+# 약 복용 알림 정보 조회
+def get_medication_remind(db: Session, thread_id):
+    try:
+        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+        user_id = user.user_id
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+        
+        reminders = db.query(MedicationReminder).filter(MedicationReminder.user_id == user_id).all()
+        return reminders
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
+
+
 def register_hospital_remind(db: Session, thread_id, content: str, year: int=datetime.now().year, month: int=datetime.now().month, day: int=datetime.now().day, day_num: int=0, hour: int=9, minute: int=0, additional_info: str=None):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
@@ -75,7 +119,50 @@ def register_hospital_remind(db: Session, thread_id, content: str, year: int=dat
     except Exception as e:
         db.rollback()
         return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
+# 병원 예약 알림 삭제
+def remove_hospital_remind(db: Session, thread_id, reminder_id: int):
+    try:
+        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+        user_id = user.user_id
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+
+        # db에서 조회
+        reminder = db.query(HospitalReminder).filter(HospitalReminder.user_id == user_id, HospitalReminder.reminder_id == reminder_id).first()
+
+        #db에서 삭제
+        db.delete(reminder)
+        db.commit()
+
+        return {"status": "success", "message": "병원 예약 알림이 삭제되었습니다."}
     
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
+# 병원 예약 정보 조회
+def get_hospital_remind(db: Session, thread_id):
+    try:
+        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
+        user_id = user.user_id
+        
+        if user_id is None:
+            return {"status": "failed", "message": "사용자 정보가 없습니다."}
+        
+        reminders = db.query(HospitalReminder).filter(HospitalReminder.user_id == user_id).all()
+        return reminders
+    except SQLAlchemyError as e:
+        db.rollback()
+        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
+    except Exception as e:
+        db.rollback()
+        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
+
 # 식사시간 등록
 def set_default_meal_time(db: Session, thread_id):
     try:
@@ -90,6 +177,7 @@ def set_default_meal_time(db: Session, thread_id):
         
         new_schedule = UserSchedule(
             user_id = user_id,
+            morning_time = time(7, 0),
             breakfast_time = time(8, 0),
             lunch_time = time(12, 0),
             dinner_time = time(18, 0),
@@ -106,7 +194,13 @@ def set_default_meal_time(db: Session, thread_id):
         db.rollback()
         return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
 
-
+# 현재 함수가 assistant api를 통해서만 사용가능하도록 되어있음
+# 아닌 경우에도 사용가능하지만 조금 수정할 필요가 있어보임
+# 아니면 식사기록, 취침 및 기상 시간을 기록하는 api를 따로 만들어서 사용하는 것도 좋을 것 같음
+# 나중에 수정할 필요가 있음
+# RNN 모델을 사용해서 식사시간을 추정하는 것도 좋을 것 같음
+# 이에 대해서 적용하지말고 일단 의논해보도록
+# 이번 주는 해당 기능 연결 X
 def update_meal_time(db: Session, thread_id, eaten: bool, meal_type: str, minutes: int = 10):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
@@ -123,7 +217,9 @@ def update_meal_time(db: Session, thread_id, eaten: bool, meal_type: str, minute
         # 식사 여부에 따라 meal_time 조정
         if eaten:
             # 10분 낮추기
-            if meal_type == "breakfast":
+            if meal_type == "morning":
+                schedule.morning_time = (schedule.morning_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
+            elif meal_type == "breakfast":
                 schedule.breakfast_time = (schedule.breakfast_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
             elif meal_type == "lunch":
                 schedule.lunch_time = (schedule.lunch_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
@@ -133,14 +229,16 @@ def update_meal_time(db: Session, thread_id, eaten: bool, meal_type: str, minute
                 schedule.bedtime_time = (schedule.bedtime_time.replace(hour=0, minute=0) - timedelta(minutes=minutes)).time()
         else:
             # 10분 추가하기
-            if meal_type == "breakfast":
+            if meal_type == "morning":
+                schedule.morning_time = (schedule.morning_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
+            elif meal_type == "breakfast":
                 schedule.breakfast_time = (schedule.breakfast_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
             elif meal_type == "lunch":
                 schedule.lunch_time = (schedule.lunch_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
             elif meal_type == "dinner":
                 schedule.dinner_time = (schedule.dinner_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
             elif meal_type == "bedtime":
-                schedule.bedtime = (schedule.bedtime.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
+                schedule.bedtime_time = (schedule.bedtime_time.replace(hour=0, minute=0) + timedelta(minutes=minutes)).time()
 
         schedule.updated_at = datetime.now()
         db.commit()
