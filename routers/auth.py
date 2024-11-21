@@ -29,63 +29,66 @@ router = APIRouter()
 @handle_exceptions
 @router.post("/register", response_model=UserResponse)
 def register(user: UserCreate, db: Session = Depends(get_db)):
-    # user.identifier 가 이메일인지 전화번호인지 확인
-    if user.identifier != None:
-        if is_valid_email(user.identifier):
-            user.email = user.identifier
-        elif is_valid_phone(user.identifier):
-            user.phone_number = user.identifier
+    try:
+        # user.identifier 가 이메일인지 전화번호인지 확인
+        if user.identifier != None:
+            if is_valid_email(user.identifier):
+                existing_user = db.query(User).filter(User.email == user.identifier).first()
+                if existing_user:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일이 이미 등록되어 있습니다")
+                if user.user_type == "gardian" and user.identifier == None:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일을 입력해주세요")
+                identifier_type = 'email'
+            elif is_valid_phone(user.identifier):
+                existing_user = db.query(User).filter(User.phone_number == user.identifier).first()
+                if existing_user:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호가 이미 등록되어 있습니다")
+                if user.user_type == "senior" and user.identifier == None:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호를 입력해주세요")
+                identifier_type = 'phone_number'
+            else:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 혹은 전화번호 형식이 올바르지 않습니다")
         else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 혹은 전화번호 형식이 올바르지 않습니다")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 혹은 전화번호를 입력해주세요")
+
+        if not validate_password_strength(user.password):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="비밀번호는 8자 이상이어야 하며, 영문, 숫자, 특수문자를 포함해야 합니다")
         
-    if user.user_type == "senior" and user.phone_number == None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호를 입력해주세요")
-    if user.user_type == "guardian" and user.email == None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일을 입력해주세요")
-    if user.email == None and user.phone_number == None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일 혹은 전화번호를 입력해주세요")
-    
-    existing_user = db.query(User).filter(User.phone_number == user.phone_number).first()
-    if existing_user:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="전화번호가 이미 등록되어 있습니다")
+        hashed_password = hash_password(user.password)
 
-    if user.email:
-        existing_email_user = db.query(User).filter(User.email == user.email).first()
-        if existing_email_user:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이메일이 이미 등록되어 있습니다")
+        new_user = User(
+            user_uuid=str(uuid.uuid4()),
+            user_real_name=user.user_real_name,
+            password_hash=hashed_password,
+            phone_number=user.identifier if identifier_type == 'phone_number' else None,
+            user_type=user.user_type,
+            email=user.identifier if identifier_type == 'email' else None,
+            created_at=datetime.utcnow(),
+        )
+        
+        db.add(new_user)
+        db.commit()
 
-    if not validate_password_strength(user.password):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="비밀번호는 8자 이상이어야 하며, 영문, 숫자, 특수문자를 포함해야 합니다")
-    
-    hashed_password = hash_password(user.password)
+        access_token = token_manager.create_access_token(new_user.user_id)
+        refresh_token = token_manager.create_refresh_token(new_user.user_id)
 
-    new_user = User(
-        user_uuid=str(uuid.uuid4()),
-        user_real_name=user.user_real_name,
-        password_hash=hashed_password,
-        phone_number=user.phone_number,
-        user_type=user.user_type,
-        email=user.email,
-        created_at=datetime.utcnow(),
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+        token_manager.store_refresh_token(db, refresh_token, new_user.user_id)
+        init_meal_time(db, new_user.user_id)
 
-    access_token = token_manager.create_access_token(new_user.user_id)
-    refresh_token = token_manager.create_refresh_token(new_user.user_id)
-
-    token_manager.store_refresh_token(db, refresh_token, new_user.user_id)
-    init_meal_time(db, user.user_id)
-
-    return RegisterResponse(
-        user_real_name=new_user.user_real_name,
-        user_type=new_user.user_type,
-        phone_number=new_user.phone_number,
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
+        db.refresh(new_user)
+        return RegisterResponse(
+            user_real_name=new_user.user_real_name,
+            user_type=new_user.user_type,
+            phone_number=new_user.phone_number,
+            access_token=access_token,
+            refresh_token=refresh_token
+        )
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"데이터베이스 오류가 발생했습니다: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"예상치 못한 오류가 발생했습니다: {str(e)}")
     
 #    
 #     .oooooo..o  o8o                               o8o             
