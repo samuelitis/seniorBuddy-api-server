@@ -161,8 +161,7 @@ class UserCreate(BaseModel):
     user_real_name: str
     password: str
     user_type: str
-    phone_number: Optional[str] = None
-    email: Optional[str] = None
+    identifier: str = None
 
     class Config:
         from_attributes = True
