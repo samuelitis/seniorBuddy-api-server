@@ -61,7 +61,7 @@ async def get_medication_reminders(user: User = Depends(get_current_user), db: S
 @handle_exceptions
 @router.put("/medication/{reminder_id}")
 async def update_medication_reminder(reminder_id: int, remind: MedicationReminderResponse, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    reminder = db.query(MedicationReminder).filter(MedicationReminder.id == reminder_id, MedicationReminder.user_id == user.user_id).first()
+    reminder = db.query(MedicationReminder).filter(MedicationReminder.reminder_id == reminder_id, MedicationReminder.user_id == user.user_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     
@@ -90,7 +90,7 @@ async def update_medication_reminder(reminder_id: int, remind: MedicationReminde
 @handle_exceptions
 @router.delete("/medication/{reminder_id}")
 async def delete_medication_reminder(reminder_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    reminder = db.query(MedicationReminder).filter(MedicationReminder.id == reminder_id, MedicationReminder.user_id == user.user_id).first()
+    reminder = db.query(MedicationReminder).filter(MedicationReminder.reminder_id == reminder_id, MedicationReminder.user_id == user.user_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     db.delete(reminder)
@@ -133,7 +133,7 @@ async def get_hospital_reminders(user: User = Depends(get_current_user), db: Ses
 @handle_exceptions
 @router.put("/hospital/{reminder_id}")
 async def update_hospital_reminder(reminder_id: int, remind: HospitalReminderResponse, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    reminder = db.query(HospitalReminder).filter(HospitalReminder.id == reminder_id, HospitalReminder.user_id == user.user_id).first()
+    reminder = db.query(HospitalReminder).filter(HospitalReminder.reminder_id == reminder_id, HospitalReminder.user_id == user.user_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     
@@ -152,7 +152,7 @@ async def update_hospital_reminder(reminder_id: int, remind: HospitalReminderRes
 @handle_exceptions
 @router.delete("/hospital/{reminder_id}")
 async def delete_hospital_reminder(reminder_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    reminder = db.query(HospitalReminder).filter(HospitalReminder.id == reminder_id, HospitalReminder.user_id == user.user_id).first()
+    reminder = db.query(HospitalReminder).filter(HospitalReminder.reminder_id == reminder_id, HospitalReminder.user_id == user.user_id).first()
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     db.delete(reminder)
@@ -168,22 +168,3 @@ def get_user_schedules(user: User = Depends(get_current_user), db: Session = Dep
     user_schedules = db.query(UserSchedule).filter(UserSchedule.user_id == user_id).all()
     hospital_reminders = db.query(HospitalReminder).filter(HospitalReminder.user_id == user_id).all()
     medicine_reminders = db.query(MedicationReminder).filter(MedicationReminder.user_id == user_id).all()
-    for reminder in medicine_reminders:
-        if "아침식전" in reminder.frequency:
-            reminder.time = user_schedules.breakfast_time - timedelta(minutes=30)
-        elif "아침식후" in reminder.frequency:
-            reminder.time = user_schedules.breakfast_time + timedelta(minutes=30)
-        elif "점심식전" in reminder.frequency:
-            reminder.time = user_schedules.lunch_time - timedelta(minutes=30)
-        elif "점심식후" in reminder.frequency:
-            reminder.time = user_schedules.lunch_time + timedelta(minutes=30)
-        elif "저녁식전" in reminder.frequency:
-            reminder.time = user_schedules.dinner_time - timedelta(minutes=30)
-        elif "저녁식후" in reminder.frequency:
-            reminder.time = user_schedules.dinner_time + timedelta(minutes=30)
-        elif "취침전" in reminder.frequency:
-            reminder.time = user_schedules.bedtime_time - timedelta(minutes=30)
-        else:
-            pass
-        result.append(reminder)
-    return result

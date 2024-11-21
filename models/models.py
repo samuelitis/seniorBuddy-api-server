@@ -37,33 +37,6 @@ class User(Base):
         if 'phone_number' in values and v is None and values['phone_number'] is None:
             raise ValueError('이메일 혹은 휴대폰 번호 둘중 하나는 입력되어야합니다.')
         return v
-    
-class ScheduledMessage(Base):
-    __tablename__ = "scheduled_messages"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
-    title = Column(TEXT, nullable=False)
-    content = Column(TEXT, nullable=False)
-    scheduled_time = Column(DateTime, nullable=False)
-    status = Column(String(20), default="pending")  # pending, sent, failed
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    user = relationship("User", back_populates="scheduled_messages")
-
-class UserSchedule(Base):
-    __tablename__ = "user_schedule"
-
-    user_id = Column(Integer, ForeignKey('users.user_id', ondelete="CASCADE"), primary_key=True, index=True)
-    morning_time = Column(Time, nullable=True)
-    breakfast_time = Column(Time, nullable=True)
-    lunch_time = Column(Time, nullable=True)
-    dinner_time = Column(Time, nullable=True)
-    bedtime_time = Column(Time, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    user = relationship("User", back_populates="user_schedule")
 
 # AssistantThreads 테이블 모델 정의
 class AssistantThread(Base):
@@ -100,6 +73,33 @@ class RefreshToken(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
 
+class ScheduledMessage(Base):
+    __tablename__ = "scheduled_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    title = Column(TEXT, nullable=False)
+    content = Column(TEXT, nullable=False)
+    scheduled_time = Column(DateTime, nullable=False)
+    status = Column(String(20), default="pending")  # pending, sent, failed
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="scheduled_messages")
+
+class UserSchedule(Base):
+    __tablename__ = "user_schedule"
+
+    user_id = Column(Integer, ForeignKey('users.user_id', ondelete="CASCADE"), primary_key=True, index=True)
+    morning_time = Column(Time, nullable=True)
+    breakfast_time = Column(Time, nullable=True)
+    lunch_time = Column(Time, nullable=True)
+    dinner_time = Column(Time, nullable=True)
+    bedtime_time = Column(Time, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", back_populates="user_schedule")
+
 class MedicationReminder(Base):
     __tablename__ = "medication_reminders"
     __table_args__ = (Index('idx_user_id_medication_reminders', 'user_id'),)
@@ -134,6 +134,28 @@ class HospitalReminder(Base):
 
     user = relationship("User", back_populates="hospital_reminders")
 
+# 시간날때 아래 방법으로 코드 전면 수정할것
+# 아래처럼 하면 테이블 관리가 편할것임
+# class Event(Base):
+#     __tablename__ = "events"
+
+#     event_id = Column(Integer, primary_key=True, index=True)
+#     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+#     title = Column(String(255), nullable=False)  # 일정 제목
+#     description = Column(TEXT, nullable=True)    # 일정 설명
+#     start_time = Column(DateTime, nullable=False)  # 시작 시간
+#     end_time = Column(DateTime, nullable=True)     # 종료 시간
+#     event_type = Column(String(50), nullable=False)  # 일정 유형 ('meeting', 'reminder', 'task' 등)
+#     location = Column(String(255), nullable=True)    # 위치
+#     is_all_day = Column(Boolean, nullable=False, default=False)  # 하루 종일 일정인지 여부
+#     is_repeating = Column(Boolean, nullable=False, default=False)  # 반복 일정인지 여부
+#     repeat_pattern = Column(String(50), nullable=True)  # 반복 패턴 (예: 'daily', 'weekly', 'monthly')
+#     reminder_time = Column(Integer, nullable=True)  # 알림 시간 (분 단위)
+#     timezone = Column(String(50), nullable=True)    # 시간대 정보
+#     additional_info = Column(JSON, nullable=True)   # 기타 추가 정보 (JSON 형태)
+
+#     user = relationship("User", back_populates="events")
+
 # 사용자 생성/조회 스키마
 class UserCreate(BaseModel):
     user_real_name: str
@@ -141,7 +163,6 @@ class UserCreate(BaseModel):
     user_type: str
     phone_number: Optional[str] = None
     email: Optional[str] = None
-    fcm_token: Optional[str] = None
 
     class Config:
         from_attributes = True

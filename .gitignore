@@ -8,3 +8,4 @@ test.ipynb
 weather_data
 database/*.xlsx
 utils/config.py
+fcm_key.json

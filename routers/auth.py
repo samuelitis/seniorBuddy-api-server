@@ -73,8 +73,7 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     refresh_token = token_manager.create_refresh_token(new_user.user_id)
 
     token_manager.store_refresh_token(db, refresh_token, new_user.user_id)
-    if user.fcm_token is not None:
-        store_fcm_token(new_user, user.fcm_token, db)
+    init_meal_time(db, user.user_id)
 
     return RegisterResponse(
         user_real_name=new_user.user_real_name,
@@ -124,7 +123,6 @@ def login(data: LoginData, db: Session = Depends(get_db)):
     refresh_token = token_manager.create_refresh_token(user.user_id)
     # 리프레시 토큰 저장
     token_manager.store_refresh_token(db, refresh_token, user.user_id)
-    init_meal_time(db, user.user_id)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -135,16 +133,13 @@ def init_meal_time(db: Session, user_id):
         if user_id is None:
             return {"status": "failed", "message": "사용자 정보가 없습니다."}
         
-        if db.query(UserSchedule).filter(UserSchedule.user_id == user_id).first():
-            return {"status": "failed", "message": "이미 식사시간이 등록되어 있습니다."}
-        
         new_schedule = UserSchedule(
             user_id = user.user_id,
             morning_time = time(7, 0),
             breakfast_time = time(8, 0),
             lunch_time = time(12, 0),
             dinner_time = time(18, 0),
-            bedtime = time(22, 0)
+            bedtime_time = time(22, 0)
         )
         db.add(new_schedule)
         db.commit()

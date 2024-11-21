@@ -44,6 +44,7 @@ def register_medication_remind(db: Session, thread_id, content: str, start_date:
     
 def remove_medication_remind(db: Session, thread_id, reminder_id: int):
     try:
+        print(f"remove_medication_remind({thread_id}, {reminder_id})")
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
         user_id = user.user_id
         
@@ -51,8 +52,10 @@ def remove_medication_remind(db: Session, thread_id, reminder_id: int):
             return {"status": "failed", "message": "사용자 정보가 없습니다."}
 
         # db에서 조회
-        reminder = db.query(MedicationReminder).filter(MedicationReminder.user_id == user_id, MedicationReminder.reminder_id == reminder_id).first()        
-
+        reminder = db.query(MedicationReminder).filter(MedicationReminder.reminder_id == reminder_id, 
+                                                       MedicationReminder.user_id == user.user_id).first()
+        if reminder is None:
+            return {"status": "failed", "message": f"리마인더를 찾지 못했습니다."}
         #db에서 삭제
         db.delete(reminder)
         db.commit()
@@ -76,7 +79,24 @@ def get_medication_remind(db: Session, thread_id):
             return {"status": "failed", "message": "사용자 정보가 없습니다."}
         
         reminders = db.query(MedicationReminder).filter(MedicationReminder.user_id == user_id).all()
-        return reminders
+        result = []
+        for reminder in reminders:
+            result.append({
+                'reminder_id': reminder.reminder_id,
+                'content': reminder.content,
+                'start_date': reminder.start_date,
+                'end_date': reminder.end_date,
+                'dose_morning': reminder.dose_morning,
+                'dose_breakfast_before': reminder.dose_breakfast_before,
+                'dose_breakfast_after': reminder.dose_breakfast_after,
+                'dose_lunch_before': reminder.dose_lunch_before,
+                'dose_lunch_after': reminder.dose_lunch_after,
+                'dose_dinner_before': reminder.dose_dinner_before,
+                'dose_dinner_after': reminder.dose_dinner_after,
+                'dose_bedtime': reminder.dose_bedtime,
+                'additional_info': reminder.additional_info
+            })
+        return result
     except SQLAlchemyError as e:
         db.rollback()
         return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
@@ -181,7 +201,7 @@ def set_default_meal_time(db: Session, thread_id):
             breakfast_time = time(8, 0),
             lunch_time = time(12, 0),
             dinner_time = time(18, 0),
-            bedtime = time(22, 0)
+            bedtime_time = time(22, 0)
         )
         db.add(new_schedule)
         db.commit()

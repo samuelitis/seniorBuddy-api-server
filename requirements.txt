@@ -16,3 +16,6 @@ pydantic[email]
 bcrypt
 xmltodict
 APScheduler
+firebase-admin
+pytz
+schedule

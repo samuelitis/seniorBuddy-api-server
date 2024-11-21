@@ -226,7 +226,8 @@ class EventHandler(AssistantEventHandler):
         tool_outputs = []
 
         for tool in data.required_action.submit_tool_outputs.tool_calls:
-            print(tool.function.name)
+            print(f"tool.function.name: {tool.function.name}")
+            print(f"tool.function.arguments: {tool.function.arguments}")
             tool_arguments = json.loads(tool.function.arguments) if tool.function.arguments else {}
             if tool.function.name == "getUltraSrtFcst":
                 result = getUltraSrtFcst(self.current_run.thread_id)
