@@ -241,7 +241,7 @@ class HospitalReminderCreate(BaseModel):
         from_attributes = True
         json_schema_extra = {
             "example": {
-                "content": "경산 하양읍 미르치과 예약",
+                "content": "경산 하양읍 미르치과",
                 "start_date_time": "2024-11-24 15:00:00",
                 "additional_info": "양치하기",
             }

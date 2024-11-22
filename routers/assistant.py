@@ -111,12 +111,13 @@ async def add_and_run_message(request: Request, message: AssistantMessageCreate,
             )
             # raise HTTPException(status_code=400, detail=f"Thread run failed: {thread.run_state}")
         else:
-            raise HTTPException(status_code=400, detail=f"메세지가 실행중입니다: {thread.run_state}")
+            # 메세지 이미 실행 중일 때
+            return {"status": "Message created but not executed", "content": "죄송합니다. 잠시 후 다시 시도해주세요."}
 
     except OpenAIError as e:
-        raise HTTPException(status_code=500, detail=f"OpenAIError : 메세지 생성 실패: {str(e)}")
+        return {"status": "Message created but not executed", "content": "죄송합니다. 잠시 뒤 다시 말씀해주세요."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"메세지 생성 실패: {str(e)}")
+        return {"status": "Message not created", "content": "죄송합니다. 제가 이해하지 못했어요. 다시 말씀해주시겠어요?"}
 
     new_message = AssistantMessage(
         thread_id=thread.thread_id,
@@ -148,7 +149,7 @@ async def get_messages_by_thread(request: Request, user: User = Depends(get_curr
 
     messages = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).all()
     if not messages:
-        raise HTTPException(status_code=404, detail="메세지를 찾을 수 없습니다.")
+        return []
     
     return messages
 
@@ -157,7 +158,7 @@ async def get_messages_by_thread(request: Request, user: User = Depends(get_curr
 async def get_latest_message(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     thread = db.query(AssistantThread).filter(AssistantThread.user_id == user.user_id).first()
     if not thread:
-        raise HTTPException(status_code=404, detail="쓰레드를 찾을 수 없습니다.")
+        thread = await create_assistant_thread(user.user_id, db)
 
     latest_message = db.query(AssistantMessage).filter(AssistantMessage.thread_id == thread.thread_id).order_by(desc(AssistantMessage.created_at)).first()
     if not latest_message:
@@ -173,7 +174,7 @@ async def get_latest_message(request: Request, user: User = Depends(get_current_
 #     `88b    d88'  888   888 888    .o  888   888        .8'     `888.   888 
 #      `Y8bood8P'   888bod8P' `Y8bod8P' o888o o888o      o88o     o8888o o888o
 #                   888                                                       
-#                  o888o                                                 
+#                  o888o                                               
 
 class EventHandler(AssistantEventHandler):
     def __init__(self, db: Session, thread_id: str):
@@ -185,17 +186,12 @@ class EventHandler(AssistantEventHandler):
         try:
             message = self.db.query(AssistantMessage).filter(AssistantMessage.thread_id == self.thread_id).order_by(desc(AssistantMessage.created_at)).first()
             if message:
-                try:
-                    self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": status})
-                    self.db.commit()
-                    # print(f"Thread status updated: {status}")
-                except SQLAlchemyError as e:
-                    self.db.rollback()
-                    raise HTTPException(status_code=500, detail=f"메세지 상태 업데이트 실패: {str(e)}")
+                self.db.query(AssistantThread).filter(AssistantThread.thread_id == self.thread_id).update({"run_state": status})
+                self.db.commit()
             else:
                 raise HTTPException(status_code=404, detail="메세지가 존재하지 않습니다.")
-        except SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=f"메세지 상태 업데이트 실패: {str(e)}")
+        except SQLAlchemyError:
+            self.db.rollback()
     def on_event(self, event: Any) -> None:
         self.update_message_status(event.event)
         if event.event == 'thread.run.requires_action':
@@ -268,7 +264,6 @@ class EventHandler(AssistantEventHandler):
                     self.db.commit()
             except Exception as e:
                 self.db.rollback()
-                raise HTTPException(status_code=500, detail=f"툴 아웃풋 제출 실패: {str(e)}")
     @override
     def on_text_delta(self, delta, snapshot):
         try:
@@ -277,11 +272,11 @@ class EventHandler(AssistantEventHandler):
                 new_content = message.content + delta.value
                 message.content = new_content
                 self.db.commit()
-            else:
-                raise HTTPException(status_code=404, detail="메세지가 존재하지 않습니다.")
+            # else:
+                # raise HTTPException(status_code=404, detail="메세지가 존재하지 않습니다.")
         except SQLAlchemyError as e:
             self.db.rollback()
-            raise HTTPException(status_code=500, detail=f"메세지 델타 처리 실패: {str(e)}")
+            # raise HTTPException(status_code=500, detail=f"메세지 델타 처리 실패: {str(e)}")
         
     @override
     def on_message_done(self, content: Message) -> None:
@@ -292,4 +287,4 @@ class EventHandler(AssistantEventHandler):
                 self.db.commit()
         except SQLAlchemyError as e:
             self.db.rollback()
-            raise HTTPException(status_code=500, detail=f"메세지 종료 처리 실패: {str(e)}")
+            # raise HTTPException(status_code=500, detail=f"메세지 종료 처리 실패: {str(e)}")
