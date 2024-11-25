@@ -226,7 +226,7 @@ class EventHandler(AssistantEventHandler):
             print(f"tool.function.arguments: {tool.function.arguments}")
             tool_arguments = json.loads(tool.function.arguments) if tool.function.arguments else {}
             if tool.function.name == "getUltraSrtFcst":
-                result = getUltraSrtFcst(self.current_run.thread_id)
+                result = getUltraSrtFcst(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
             if tool.function.name == "register_medication_remind":
                 result = register_medication_remind(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
             if tool.function.name == "register_hospital_remind":

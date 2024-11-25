@@ -83,7 +83,7 @@ def getRoundedTime(time):
         return time.replace(minute=30, second=0, microsecond=0)
     else:
         return time.replace(minute=0, second=0, microsecond=0)
-def getUltraSrtFcst(thread_id = None, db: Session = None):
+def getUltraSrtFcst(db: Session = None, thread_id = None):
     user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
     
     if user is None or user.latitude is None or user.longitude is None:
