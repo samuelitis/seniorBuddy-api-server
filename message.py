@@ -35,6 +35,30 @@ def get_db():
 def adjust_time(original_time, delta):
     return (datetime.combine(today, original_time) + delta).time()
 
+def send_action_message(user_id, title, body, action):
+    with get_db() as db:
+        _token = db.query(User).filter(
+            User.user_id == user_id
+        ).first().fcm_token
+
+        data = messaging.Message(
+            data={
+                'type': 'showOverlay',
+                'title': title,
+                'body': body,
+                'action': action
+            },
+            android=messaging.AndroidConfig(
+                direct_boot_ok=True,
+            ),
+            token = _token,
+        )
+        try:
+            response = messaging.send(data)
+            print('time:', datetime.now(), 'Successfully sent message:', response, 'Message:', body)
+        except Exception as e:
+            print('Error sending message:', e)
+
 def send_message(status = 'pending'):
     with get_db() as db:
         _ = db.query(ScheduledMessage).filter(
@@ -63,8 +87,7 @@ def send_message(status = 'pending'):
         )
         try:
             response = messaging.send(data)
-            print('Successfully sent message:', response)
-            print('Message:', _.content)
+            print('time:', datetime.now(), 'Successfully sent message:', response, 'Message:', _.content)
             db.query(ScheduledMessage).filter(ScheduledMessage.id == _.id).update({"status": "sent"})
             db.commit()
         except Exception as e:
@@ -86,8 +109,8 @@ def scheduling_messages():
                     if user_schedule is None:
                         new_schedule = UserSchedule(
                             user_id=user.user_id,
-                            morning_time=time(7, 0),
-                            breakfast_time=time(8, 0),
+                            morning_time=time(7, 30),
+                            breakfast_time=time(8, 30),
                             lunch_time=time(12, 0),
                             dinner_time=time(18, 0),
                             bedtime_time=time(22, 0)
@@ -139,11 +162,11 @@ def scheduling_messages():
                             elif "dinner_after" in attribute:
                                 combined_content = f"저녁 식사 30분 전에 {combined_content} 드셔야해요"
                             elif "breakfast_before" in attribute:
-                                combined_content = f"아침 식사 30분이 지나면 {combined_content} 드셔야해요"
+                                combined_content = f"아침 식사 30분이 지난거같네요. {combined_content} 드셔야해요"
                             elif "lunch_before" in attribute:
-                                combined_content = f"점심 식사 30분이 지나면 {combined_content} 드셔야해요"
+                                combined_content = f"점심 식사 30분이 지난거같네요. {combined_content} 드셔야해요"
                             elif "dinner_before" in attribute:
-                                combined_content = f"저녁 식사 30분이 지나면 {combined_content} 드셔야해요"
+                                combined_content = f"저녁 식사 30분이 지난거같네요. {combined_content} 드셔야해요"
 
                             scheduled_messages.append({
                                 "user_id": user.user_id,
@@ -205,6 +228,8 @@ def scheduling_messages():
             db.rollback()
         finally:
             db.commit()
+
+
 cred = credentials.Certificate("fcm_key.json")
 firebase_admin.initialize_app(cred)
 

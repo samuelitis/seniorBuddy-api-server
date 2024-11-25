@@ -197,8 +197,8 @@ def set_default_meal_time(db: Session, thread_id):
         
         new_schedule = UserSchedule(
             user_id = user_id,
-            morning_time = time(7, 0),
-            breakfast_time = time(8, 0),
+            morning_time=time(7, 30),
+            breakfast_time=time(8, 30),
             lunch_time = time(12, 0),
             dinner_time = time(18, 0),
             bedtime_time = time(22, 0)

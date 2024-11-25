@@ -127,5 +127,8 @@ def get_current_user(authorization: str = Depends(authorization_scheme), db: Ses
     except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="토근이 유효하지 않습니다")
 
+    except HTTPException as e:
+        raise e
+    
     except Exception as e: # 임시 예외처리, 발생가능한 예외처리 추가 필요
         raise HTTPException(status_code=403, detail=f"예상치 못한 오류가 발생했습니다: {str(e)}")
