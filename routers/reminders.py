@@ -65,7 +65,6 @@ async def update_medication_reminder(reminder_id: int, remind: MedicationReminde
     if not reminder:
         raise HTTPException(status_code=404, detail="Reminder not found")
     
-    # nullable 필드 업데이트 로직
     if remind.content is not None:
         reminder.content = remind.content
     if remind.start_date is not None:
@@ -85,6 +84,7 @@ async def update_medication_reminder(reminder_id: int, remind: MedicationReminde
         reminder.additional_info = remind.additional_info
 
     db.commit()
+    db.refresh(reminder)
     return reminder
 
 @handle_exceptions
