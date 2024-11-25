@@ -178,6 +178,7 @@ def store_fcm_token(user: User, fcm_token: str, db: Session):
 @handle_exceptions
 @router.post("/refresh")
 def refresh(access_token: str = Header(None), refresh_token: str = Header(None), db: Session = Depends(get_db)):
+    print(access_token, refresh_token)
     if not access_token or not refresh_token:
         raise HTTPException(status_code=400, detail="토큰이 누락되었습니다")
 

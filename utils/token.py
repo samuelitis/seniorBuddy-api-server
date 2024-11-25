@@ -103,6 +103,7 @@ token_manager = TokenManager()
 authorization_scheme = APIKeyHeader(name="Authorization")
 
 def get_current_user(authorization: str = Depends(authorization_scheme), db: Session = Depends(get_db)):
+    print(authorization)
     if not authorization:
         raise HTTPException(status_code=400, detail="인증 정보가 없습니다")
     if not authorization.startswith("Bearer "):
