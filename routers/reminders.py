@@ -147,6 +147,7 @@ async def update_hospital_reminder(reminder_id: int, remind: HospitalReminderRes
         reminder.additional_info = remind.additional_info
 
     db.commit()
+    db.refresh(reminder)
     return reminder
 
 @handle_exceptions

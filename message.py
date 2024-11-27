@@ -1,5 +1,6 @@
-## 임시일 뿐임
-## 리마인드에서 이벤트 DB로 변경 시 에 필히 수정해야함
+## 임시코드
+
+## DB를 바꿀필요가 있음
 
 import json
 import pytz
@@ -64,8 +65,7 @@ def send_message(status = 'pending'):
         _ = db.query(ScheduledMessage).filter(
             and_(
                 ScheduledMessage.status == status,
-                ScheduledMessage.scheduled_time <= datetime.now(),
-                ScheduledMessage.scheduled_time >= datetime.now() - timedelta(minutes=180)
+                ScheduledMessage.scheduled_time <= datetime.now()
             )
         ).first()
         if _ is None:
@@ -237,4 +237,5 @@ if __name__ == '__main__':
     schedule.every().day.at("00:01").do(scheduling_messages)
     while True:
         schedule.run_pending()
-        send_message()
+        if datetime.now().time() > time(0, 30):
+            send_message()
