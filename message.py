@@ -13,7 +13,6 @@ from sqlalchemy import create_engine, and_
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timedelta, time
 from collections import defaultdict
-from utils.config import variables
 
 
 from models import ScheduledMessage, MedicationReminder, HospitalReminder, User, UserSchedule
@@ -21,6 +20,7 @@ from models import ScheduledMessage, MedicationReminder, HospitalReminder, User,
 local_tz = pytz.timezone('Asia/Seoul')
 today = datetime.now(local_tz).date()
 
+from utils.config import variables
 DATABASE_URL = f"mysql+mysqlconnector://{variables.MYSQL_USER}:{variables.MYSQL_PASSWORD}@{variables.MYSQL_HOST}:{variables.MYSQL_PORT}/seniorbuddy_db"
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
