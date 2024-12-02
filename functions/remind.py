@@ -2,7 +2,7 @@ from datetime import time, datetime, timedelta
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from models import User, HospitalReminder, MedicationReminder, AssistantThread, UserSchedule, UserScheduleResponse
+from models import User, HospitalReminder, MedicationReminder, AssistantThread, UserSchedule
 
 def register_medication_remind(db: Session, thread_id, content: str, start_date: int, repeat_day: str, frequency: str, additional_info: str):
     try:
