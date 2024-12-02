@@ -11,7 +11,7 @@ from openai import OpenAIError
 
 from models import  AssistantMessageCreate, AssistantThread, AssistantMessage, User
 from database import get_db, handle_exceptions
-from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind, getHospBasisList, remove_medication_remind, remove_hospital_remind, get_medication_remind, get_hospital_remind, update_meal_time, increase_font_size, decrease_font_size, send_message, call_contact, launch_specific_app
+from functions import getUltraSrtFcst, register_medication_remind, register_hospital_remind, getHospBasisList, remove_medication_remind, remove_hospital_remind, get_medication_remind, get_hospital_remind, update_meal_time, send_message, call_contact, launch_specific_app, openFontSizeSettings
 from utils.config import variables
 from utils import get_current_user
 
@@ -244,10 +244,8 @@ class EventHandler(AssistantEventHandler):
             if tool.function.name == "update_meal_time":
                 result = update_meal_time(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
                 
-            if tool.function.name == "increase_font_size":
-                result = increase_font_size(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
-            if tool.function.name == "decrease_font_size":
-                result = decrease_font_size(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
+            if tool.function.name == "openFontSizeSettings":
+                result = openFontSizeSettings(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
             if tool.function.name == "send_message":
                 result = send_message(db=self.db, thread_id=self.current_run.thread_id, **tool_arguments)
             if tool.function.name == "call_contact":

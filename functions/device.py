@@ -6,7 +6,7 @@ from models import User, AssistantThread
 cred = credentials.Certificate("fcm_key.json")
 initialize_app(cred)
 
-def increase_font_size(db: Session, thread_id):
+def openFontSizeSettings(db: Session, thread_id):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
 
@@ -15,37 +15,7 @@ def increase_font_size(db: Session, thread_id):
         
         data = messaging.Message(
             data={
-                'type': 'increaseFontSize',
-                'title': 'none',
-                'body': 'none',
-            },
-            android=messaging.AndroidConfig(
-                direct_boot_ok=True,
-            ),
-            token = user.fcm_token,
-        )
-        response = messaging.send(data)
-
-        print('Successfully sent message:', response)
-        return {"status": "success", "message": response}
-    
-    except SQLAlchemyError as e:
-        db.rollback()
-        return {"status": "failed", "message": f"데이터베이스 오류가 발생했습니다: {str(e)}"}
-    except Exception as e:
-        db.rollback()
-        return {"status": "failed", "message": f"예상치 못한 오류가 발생했습니다: {str(e)}"}
-
-def decrease_font_size(db: Session, thread_id):
-    try:
-        user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
-
-        if user.fcm_token is None:
-            return {"status": "failed", "message": "User has no FCM token"}
-        
-        data = messaging.Message(
-            data={
-                'type': 'decreaseFontSize',
+                'type': 'openFontSizeSettings',
                 'title': 'none',
                 'body': 'none',
             },

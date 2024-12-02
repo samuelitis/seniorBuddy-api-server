@@ -14,9 +14,8 @@ from .emergency import (
     getHospBasisList,
 )
 from .device import (
-    increase_font_size,
-    decrease_font_size,
     send_message,
     call_contact,
-    launch_specific_app
+    launch_specific_app,
+    openFontSizeSettings
 )
