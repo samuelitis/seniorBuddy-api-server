@@ -99,7 +99,7 @@ def call_contact(db: Session, thread_id, contact_name: str):
     
     
 
-def launch_specific_app(db: Session, thread_id, app_name: str, activity_name: str):
+def launch_specific_app(db: Session, thread_id, app_name: str, activity_name: str=None):
     try:
         user = db.query(User).join(AssistantThread).filter(AssistantThread.thread_id == thread_id).first()
 
